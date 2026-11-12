@@ -1,6 +1,6 @@
 import { ArrowDown, ArrowUpRight } from 'lucide-react'
-import castleBackground from '../assets/campus/castle-background.jpg.jpg'
-import logo from '../assets/branding/hackwarts-2026-logo.jpeg.jpeg'
+import castleBackground from '../assets/hackwarts-magical-hero.png'
+import logo from '../assets/branding/hackwarts-2026-logo-transparent.png'
 
 export function HeroSection() {
   return (

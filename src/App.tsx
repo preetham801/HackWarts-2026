@@ -9,6 +9,7 @@ import { RewardsSection } from './sections/RewardsSection'
 import { RulesSection } from './sections/RulesSection'
 import { TimelineSection } from './sections/TimelineSection'
 import { TracksSection } from './sections/TracksSection'
+import { EnchantedWandCursor } from './components/EnchantedWandCursor'
 
 function App() {
   return (
@@ -26,6 +27,7 @@ function App() {
         <RegistrationSection />
       </main>
       <FooterStrip />
+      <EnchantedWandCursor />
     </div>
   )
 }
