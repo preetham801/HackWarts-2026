@@ -1,10 +1,10 @@
 import { ArrowUp, Sparkles } from 'lucide-react'
 import { MagicalOwl } from '../components/MagicalOwl'
-import logo from '../assets/branding/hackwarts-2026-logo.jpeg.jpeg'
+import logo from '../assets/branding/hackwarts-2026-logo-transparent.png'
 
 const footerLinks = [
   ['Home', '#home'], ['About', '#about'], ['Houses', '#houses'], ['Timeline', '#timeline'],
-  ['Tracks', '#tracks'], ['Rules', '#rules'], ['FAQs', '#faqs'],
+  ['Rules', '#rules'], ['FAQs', '#faqs'],
 ]
 
 export function FooterStrip() {
