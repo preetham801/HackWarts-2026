@@ -1,31 +1,20 @@
 import { useLayoutEffect, useRef, useState } from 'react'
 import gsap from 'gsap'
+import { MagicalOwlArtwork } from '../components/MagicalOwl'
 import invitationDesk from '../assets/invitation/invitation-desk.jpg'
 import acceptanceParchment from '../assets/invitation/acceptance-parchment.png'
 import invitationEnvelope from '../assets/invitation/invitation-envelope.png'
-import leadOwl from '../assets/invitation/envelope-owl-lead.png'
-import risingOwl from '../assets/invitation/envelope-owl-follower-rise.png'
-import descendingOwl from '../assets/invitation/envelope-owl-follower-down.png'
-import bankingOwl from '../assets/invitation/envelope-owl-follower-bank.png'
-
-const flock = [leadOwl, risingOwl, descendingOwl, bankingOwl]
-
-function HackWartsSeal() {
-  return (
-    <svg viewBox="0 0 52 58" aria-hidden="true" focusable="false">
-      <path d="M26 3 45 10v16c0 13-8 22-19 29C15 48 7 39 7 26V10Z" fill="none" stroke="currentColor" strokeWidth="1.6" />
-      <path d="M17 17v21m18-21v21M17 27h18" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" />
-      <path d="m26 9 1.2 3 3.1.2-2.4 1.8.8 3-2.7-1.7-2.6 1.7.8-3-2.4-1.8 3.1-.2Z" fill="currentColor" />
-    </svg>
-  )
-}
+import hackWartsLogo from '../assets/branding/hackwarts-2026-logo-transparent.png'
 
 export function AboutSection() {
   const stageRef = useRef<HTMLDivElement>(null)
   const triggerRef = useRef<HTMLButtonElement>(null)
   const owlRefs = useRef<Array<HTMLSpanElement | null>>([])
-  const owlLeftWingRefs = useRef<Array<HTMLImageElement | null>>([])
-  const owlRightWingRefs = useRef<Array<HTMLImageElement | null>>([])
+  const owlSvgRefs = useRef<Array<SVGSVGElement | null>>([])
+  const owlLeftWingRefs = useRef<Array<SVGGElement | null>>([])
+  const owlRightWingRefs = useRef<Array<SVGGElement | null>>([])
+  const owlHeadRefs = useRef<Array<SVGGElement | null>>([])
+  const owlLetterRefs = useRef<Array<SVGGElement | null>>([])
   const owlEyeGlowRefs = useRef<Array<HTMLSpanElement | null>>([])
   const flapRef = useRef<HTMLImageElement>(null)
   const sealRef = useRef<HTMLSpanElement>(null)
@@ -41,14 +30,17 @@ export function AboutSection() {
     const stage = stageRef.current
     const trigger = triggerRef.current
     const owls = owlRefs.current.filter((owl): owl is HTMLSpanElement => owl !== null)
-    const leftWings = owlLeftWingRefs.current.filter((wing): wing is HTMLImageElement => wing !== null)
-    const rightWings = owlRightWingRefs.current.filter((wing): wing is HTMLImageElement => wing !== null)
+    const owlSvgs = owlSvgRefs.current.filter((svg): svg is SVGSVGElement => svg !== null)
+    const leftWings = owlLeftWingRefs.current.filter((wing): wing is SVGGElement => wing !== null)
+    const rightWings = owlRightWingRefs.current.filter((wing): wing is SVGGElement => wing !== null)
+    const heads = owlHeadRefs.current.filter((head): head is SVGGElement => head !== null)
+    const owlLetters = owlLetterRefs.current.filter((letter): letter is SVGGElement => letter !== null)
     const eyeGlows = owlEyeGlowRefs.current.filter((glow): glow is HTMLSpanElement => glow !== null)
     const flap = flapRef.current
     const seal = sealRef.current
     const crack = crackRef.current
     const letter = letterRef.current
-    if (!stage || !trigger || owls.length !== flock.length || leftWings.length !== flock.length || rightWings.length !== flock.length || eyeGlows.length !== flock.length || !flap || !seal || !crack || !letter) return
+    if (!stage || !trigger || owls.length !== 4 || owlSvgs.length !== 4 || leftWings.length !== 4 || rightWings.length !== 4 || heads.length !== 4 || owlLetters.length !== 4 || eyeGlows.length !== 4 || !flap || !seal || !crack || !letter) return
 
     const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)')
     const revealParts = Array.from(letter.querySelectorAll<HTMLElement>('.invitation-reveal'))
@@ -59,7 +51,7 @@ export function AboutSection() {
       timelineRef.current?.kill()
       timelineRef.current = null
       gsap.set(trigger, { autoAlpha: 0 })
-      gsap.set([...owls, ...leftWings, ...rightWings, ...eyeGlows], { autoAlpha: 0 })
+      gsap.set([...owls, ...eyeGlows], { autoAlpha: 0 })
       gsap.set(flap, { rotationX: -168, transformOrigin: '50% 0%' })
       gsap.set(seal, { autoAlpha: 0, scale: .2 })
       gsap.set(letter, { autoAlpha: 1, y: 0, scaleX: 1, scaleY: 1, rotationX: 0, clearProps: 'transform' })
@@ -74,8 +66,10 @@ export function AboutSection() {
     else {
       owls.forEach((owl, index) => {
         gsap.set(owl, { autoAlpha: 0, scale: .035, x: 0, y: 48, rotationX: -20, rotationZ: 0, transformOrigin: '50% 70%' })
-        gsap.set(leftWings[index], { rotation: 48, scaleX: .38, scaleY: .48, transformOrigin: '94% 45%' })
-        gsap.set(rightWings[index], { rotation: -48, scaleX: .38, scaleY: .48, transformOrigin: '6% 45%' })
+        gsap.set(leftWings[index], { rotation: 48, scaleX: .38, scaleY: .48, transformOrigin: '62px 66px' })
+        gsap.set(rightWings[index], { rotation: -48, scaleX: .38, scaleY: .48, transformOrigin: '98px 66px' })
+        gsap.set(heads[index], { rotation: 0, transformOrigin: '80px 62px' })
+        gsap.set(owlLetters[index], { autoAlpha: 0 })
         gsap.set(eyeGlows[index], { autoAlpha: 0, scale: .55 })
       })
       gsap.set(letter, { autoAlpha: 0, y: 150, scaleX: .82, scaleY: .22, rotationX: -8, transformOrigin: '50% 50%' })
@@ -95,7 +89,7 @@ export function AboutSection() {
       reducedMotion.removeEventListener('change', onReducedMotionChange)
       timelineRef.current?.kill()
       timelineRef.current = null
-      gsap.killTweensOf([trigger, ...owls, ...leftWings, ...rightWings, ...eyeGlows, flap, seal, crack, letter, ...revealParts, ...sparks, ...dust])
+      gsap.killTweensOf([trigger, ...owls, ...owlSvgs, ...leftWings, ...rightWings, ...heads, ...owlLetters, ...eyeGlows, flap, seal, crack, letter, ...revealParts, ...sparks, ...dust])
     }
   }, [])
 
@@ -107,14 +101,16 @@ export function AboutSection() {
     const stage = stageRef.current
     const trigger = triggerRef.current
     const owls = owlRefs.current.filter((owl): owl is HTMLSpanElement => owl !== null)
-    const leftWings = owlLeftWingRefs.current.filter((wing): wing is HTMLImageElement => wing !== null)
-    const rightWings = owlRightWingRefs.current.filter((wing): wing is HTMLImageElement => wing !== null)
+    const leftWings = owlLeftWingRefs.current.filter((wing): wing is SVGGElement => wing !== null)
+    const rightWings = owlRightWingRefs.current.filter((wing): wing is SVGGElement => wing !== null)
+    const heads = owlHeadRefs.current.filter((head): head is SVGGElement => head !== null)
+    const owlLetters = owlLetterRefs.current.filter((letter): letter is SVGGElement => letter !== null)
     const eyeGlows = owlEyeGlowRefs.current.filter((glow): glow is HTMLSpanElement => glow !== null)
     const flap = flapRef.current
     const seal = sealRef.current
     const crack = crackRef.current
     const letter = letterRef.current
-    if (!stage || !trigger || owls.length !== flock.length || leftWings.length !== flock.length || rightWings.length !== flock.length || eyeGlows.length !== flock.length || !flap || !seal || !crack || !letter) return
+    if (!stage || !trigger || owls.length !== 4 || leftWings.length !== 4 || rightWings.length !== 4 || heads.length !== 4 || owlLetters.length !== 4 || eyeGlows.length !== 4 || !flap || !seal || !crack || !letter) return
 
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
       setIsOpening(false)
@@ -143,21 +139,24 @@ export function AboutSection() {
       .to(seal, { autoAlpha: 0, scale: .28, rotation: 18, duration: .32, ease: 'power2.in' }, .2)
       .to(flap, { rotationX: -168, duration: .62, ease: 'power2.inOut' }, .28)
       .to(trigger, { y: -8, duration: .3, ease: 'sine.inOut' }, .62)
+    const horizontalRange = Math.min(310, Math.max(70, (window.innerWidth - 420) * .28))
     const flightPaths = isMobile
       ? [{ x: -58, y: -245, rotation: -2 }, { x: -100, y: -210, rotation: -9 }, { x: 78, y: -235, rotation: 7 }, { x: 116, y: -260, rotation: 11 }]
-      : [{ x: -286, y: -440, rotation: -3 }, { x: -142, y: -360, rotation: -10 }, { x: 142, y: -390, rotation: 8 }, { x: 310, y: -455, rotation: 12 }]
+      : [{ x: -horizontalRange, y: -300, rotation: -3 }, { x: -horizontalRange * .5, y: -245, rotation: -10 }, { x: horizontalRange * .5, y: -260, rotation: 8 }, { x: horizontalRange, y: -320, rotation: 11 }]
     const scaleFactors = isMobile ? [.46, .35, .34, .32] : [.72, .53, .55, .5]
     owls.forEach((owl, index) => {
       const start = .82 + index * (isMobile ? .13 : .16)
       const path = flightPaths[index]
       const leftWing = leftWings[index]
       const rightWing = rightWings[index]
+      const head = heads[index]
       const eyeGlow = eyeGlows[index]
       const wingCycles = isMobile ? 4 : 6
       const flightDuration = isMobile ? .82 : 1.02
       timeline.to(owl, { autoAlpha: 1, duration: .12 }, start)
         .to(owl, { scale: isMobile ? scaleFactors[index] * .7 : scaleFactors[index] * .72, y: 10, rotationX: 0, duration: .34, ease: 'power2.out' }, start)
         .to([leftWing, rightWing], { rotation: 0, scaleX: 1, scaleY: 1, duration: .38, ease: 'back.out(1.2)' }, start + .05)
+        .to(head, { rotation: 0, duration: .3, ease: 'sine.out' }, start + .08)
         .to(eyeGlow, { autoAlpha: .88, scale: 1, duration: .2, ease: 'power2.out' }, start + .12)
         .to(owl, { x: path.x, y: path.y, scale: scaleFactors[index], rotationX: 5, rotationZ: path.rotation, duration: flightDuration, ease: 'power2.out' }, start + .22)
         .to([leftWing, rightWing], { rotation: (wingIndex) => wingIndex === 0 ? -15 : 15, duration: .14, repeat: wingCycles, yoyo: true, ease: 'sine.inOut' }, start + .22)
@@ -177,7 +176,7 @@ export function AboutSection() {
       <span className="owl-perch-anchor owl-perch-anchor--about" data-owl-perch="about" aria-hidden="true" />
       <div
         ref={stageRef}
-        className={`invitation-scene${isOpened ? ' invitation-scene--opened' : ''}${isOpening ? ' invitation-scene--opening' : ''}`}
+        className={`invitation-scene reveal-on-scroll${isOpened ? ' invitation-scene--opened' : ''}${isOpening ? ' invitation-scene--opening' : ''}`}
         style={{ backgroundImage: `linear-gradient(180deg, rgb(6 12 19 / 27%), rgb(6 12 19 / 18%) 38%, rgb(6 12 19 / 38%)), url("${invitationDesk}")` }}
       >
         <div className="invitation-stage">
@@ -194,7 +193,11 @@ export function AboutSection() {
           >
             <img className="invitation-envelope invitation-envelope--base" src={invitationEnvelope} alt="" draggable="false" />
             <img ref={flapRef} className="invitation-envelope invitation-envelope--flap" src={invitationEnvelope} alt="" draggable="false" />
-            <span ref={sealRef} className="envelope-wax-seal"><HackWartsSeal /></span>
+            <span ref={sealRef} className="envelope-wax-seal">
+              <span className="envelope-wax-seal__mark" aria-hidden="true">
+                <img className="envelope-wax-seal__logo" src={hackWartsLogo} alt="" />
+              </span>
+            </span>
             <svg ref={crackRef} className="envelope-seal-crack" viewBox="0 0 64 8" aria-hidden="true">
               <path d="m3 2 11 3 7-4 8 5 8-4 7 3 7-4 10 4" fill="none" stroke="#f1d5a0" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
@@ -207,16 +210,20 @@ export function AboutSection() {
             <span className="invitation-instruction">YOUR LETTER AWAITS — CLICK TO OPEN</span>
           </button>
 
-          <div className="invitation-flock" aria-hidden="true">
-            {flock.map((owlAsset, index) => (
+        <div className="invitation-flock" aria-hidden="true">
+            {Array.from({ length: 4 }, (_, index) => (
               <span
-                key={owlAsset}
+                key={index}
                 ref={(node) => { owlRefs.current[index] = node }}
                 className={`envelope-owl envelope-owl--${index + 1}`}
               >
-                <img ref={(node) => { owlLeftWingRefs.current[index] = node }} className="envelope-owl__part envelope-owl__wing envelope-owl__wing--left" src={owlAsset} alt="" draggable="false" />
-                <img ref={(node) => { owlRightWingRefs.current[index] = node }} className="envelope-owl__part envelope-owl__wing envelope-owl__wing--right" src={owlAsset} alt="" draggable="false" />
-                <img className="envelope-owl__part envelope-owl__body" src={owlAsset} alt="" draggable="false" />
+                <MagicalOwlArtwork
+                  svgRef={(node) => { owlSvgRefs.current[index] = node }}
+                  leftWingRef={(node) => { owlLeftWingRefs.current[index] = node }}
+                  rightWingRef={(node) => { owlRightWingRefs.current[index] = node }}
+                  headRef={(node) => { owlHeadRefs.current[index] = node }}
+                  letterRef={(node) => { owlLetterRefs.current[index] = node }}
+                />
                 <span ref={(node) => { owlEyeGlowRefs.current[index] = node }} className="envelope-owl__eye-glow" />
               </span>
             ))}
@@ -231,15 +238,6 @@ export function AboutSection() {
           >
             <img className="invitation-letter__paper" src={acceptanceParchment} alt="" draggable="false" />
             <div className="invitation-letter__content">
-              <div className="invitation-opened-status" role="status" aria-live="polite">LETTER OPENED</div>
-              <header className="invitation-letterhead invitation-reveal">
-                <div className="invitation-crest"><HackWartsSeal /></div>
-                <p className="invitation-wordmark">HACKWARTS <span>2026</span></p>
-                <svg className="invitation-divider" viewBox="0 0 320 24" aria-hidden="true">
-                  <path d="M5 12h116m198 0H203M145 12c5-8 12-8 16 0 4-8 11-8 16 0m-17 0 7-7 7 7-7 7Z" fill="none" stroke="currentColor" strokeWidth="1.2" />
-                  <circle cx="132" cy="12" r="2" fill="currentColor" /><circle cx="188" cy="12" r="2" fill="currentColor" />
-                </svg>
-              </header>
               <h2 ref={titleRef} id="about-title" className="invitation-title invitation-reveal" tabIndex={-1}>YOUR LETTER HAS ARRIVED</h2>
               <div className="invitation-copy">
                 <p className="invitation-greeting invitation-reveal">Dear Future Innovator,</p>
@@ -251,7 +249,6 @@ export function AboutSection() {
                   <p>The HackWarts Organizing Authority</p>
                   <span>Sri Siddhartha School of Engineering</span>
                 </div>
-                <div className="invitation-wax-seal" aria-hidden="true"><HackWartsSeal /></div>
               </footer>
             </div>
           </article>

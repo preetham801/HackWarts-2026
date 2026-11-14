@@ -1,16 +1,16 @@
-import { useLayoutEffect, useRef, type RefObject } from 'react'
+import { useLayoutEffect, useRef, type Ref } from 'react'
 import { createPortal } from 'react-dom'
 import gsap from 'gsap'
 
 interface OwlArtworkProps {
-  svgRef: RefObject<SVGSVGElement | null>
-  leftWingRef: RefObject<SVGGElement | null>
-  rightWingRef: RefObject<SVGGElement | null>
-  headRef: RefObject<SVGGElement | null>
-  letterRef: RefObject<SVGGElement | null>
+  svgRef: Ref<SVGSVGElement>
+  leftWingRef: Ref<SVGGElement>
+  rightWingRef: Ref<SVGGElement>
+  headRef: Ref<SVGGElement>
+  letterRef: Ref<SVGGElement>
 }
 
-function OwlArtwork({ svgRef, leftWingRef, rightWingRef, headRef, letterRef }: OwlArtworkProps) {
+export function MagicalOwlArtwork({ svgRef, leftWingRef, rightWingRef, headRef, letterRef }: OwlArtworkProps) {
   return (
     <svg ref={svgRef} className="magical-owl-art" viewBox="0 0 160 140" aria-hidden="true" focusable="false">
       <g className="owl-tail">
@@ -321,7 +321,7 @@ export function MagicalOwl() {
   return (
     <>
       <div className="owl-perch" ref={perchRef} data-owl-perch="footer" aria-hidden="true">
-        <OwlArtwork
+        <MagicalOwlArtwork
           svgRef={perchSvgRef}
           leftWingRef={perchLeftWingRef}
           rightWingRef={perchRightWingRef}
@@ -331,7 +331,7 @@ export function MagicalOwl() {
       </div>
       {createPortal(
         <div className="owl-flyer" ref={flightRef} aria-hidden="true">
-          <OwlArtwork
+          <MagicalOwlArtwork
             svgRef={flightSvgRef}
             leftWingRef={flightLeftWingRef}
             rightWingRef={flightRightWingRef}

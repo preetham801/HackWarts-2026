@@ -1,13 +1,12 @@
 import { useExpressJourney } from '../hooks/useExpressJourney'
 import { SectionHeading } from '../components/SectionHeading'
-import { RailwayLandscape } from '../components/RailwayLandscape'
+import { TimelineScene3D } from '../components/TimelineScene3D'
 import { timelineMilestones } from '../data/timeline'
-import locomotiveAsset from '../assets/timeline/hackwarts-express-locomotive.png'
 
 const milestoneNumber = (index: number) => String(index + 1).padStart(2, '0')
 
 export function TimelineSection() {
-  const { stageRef, sceneRef, locomotiveRef, mobileProgressRef } = useExpressJourney()
+  const { stageRef, progressRef } = useExpressJourney()
 
   return (
     <section id="timeline" className="section section--night section-anchor" aria-labelledby="timeline-title">
@@ -15,39 +14,17 @@ export function TimelineSection() {
         <SectionHeading id="timeline-title" eyebrow="Journey milestones" title="ALL ABOARD THE HACKWARTS EXPRESS." subtitle="A 24-hour journey through innovation." />
 
         <div className="express-stage" ref={stageRef}>
-          <div className="railway-scene" ref={sceneRef} aria-hidden="true">
-            <RailwayLandscape />
-            <img
-              ref={locomotiveRef}
-              className="express-locomotive"
-              src={locomotiveAsset}
-              alt=""
-              loading="lazy"
-              decoding="async"
-              draggable="false"
-            />
-            <span className="railway-scene-caption">THE MOUNTAIN LINE · HACKWARTS EXPRESS</span>
-          </div>
-
-          <div className="express-route-overlay" aria-hidden="true">
-            <span className="express-route-progress"><span className="express-route-progress-fill" /></span>
-            <ol className="express-route-markers">
-              {timelineMilestones.map((milestone, index) => (
-                <li key={milestone.id} data-express-marker={index}>
-                  <span>{milestoneNumber(index)}</span>
-                </li>
-              ))}
-            </ol>
-          </div>
-
-          <div className="express-stops-wrap">
-            <span className="express-mobile-progress" aria-hidden="true">
-              <span className="express-mobile-progress-fill" ref={mobileProgressRef} />
-            </span>
+          <div className="railway-scene">
+            <TimelineScene3D progressRef={progressRef} />
+            <span className="railway-scene-caption" aria-hidden="true">THE MOUNTAIN LINE · HACKWARTS EXPRESS</span>
             <ol className="express-stops" aria-label="HackWarts Express milestones">
               {timelineMilestones.map((milestone, index) => (
-                <li className="express-stop" key={milestone.id} data-express-card={index}>
-                  <span className="express-stop-marker" aria-hidden="true">{milestoneNumber(index)}</span>
+                <li
+                  className={`express-stop express-stop--${index % 2 === 0 ? 'above' : 'below'} express-stop--card-${index % 2 === 0 ? 'right' : 'left'}`}
+                  key={milestone.id}
+                  data-express-card={index}
+                >
+                  <span className="express-stop-marker" data-express-marker={index} aria-hidden="true">{milestoneNumber(index)}</span>
                   <article className="express-stop-card">
                     <span className="express-stop-highlight" aria-hidden="true" />
                     <div className="express-stop-content">
@@ -67,6 +44,7 @@ export function TimelineSection() {
             </ol>
           </div>
         </div>
+
       </div>
     </section>
   )

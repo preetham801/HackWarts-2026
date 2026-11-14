@@ -8,10 +8,12 @@ import { RegistrationSection } from './sections/RegistrationSection'
 import { RewardsSection } from './sections/RewardsSection'
 import { RulesSection } from './sections/RulesSection'
 import { TimelineSection } from './sections/TimelineSection'
-import { TracksSection } from './sections/TracksSection'
 import { EnchantedWandCursor } from './components/EnchantedWandCursor'
+import { useScrollReveal } from './hooks/useScrollReveal'
 
 function App() {
+  useScrollReveal()
+
   return (
     <div className="site-shell">
       <SiteHeader />
@@ -20,7 +22,6 @@ function App() {
         <AboutSection />
         <HousesSection />
         <TimelineSection />
-        <TracksSection />
         <RewardsSection />
         <RulesSection />
         <FaqSection />

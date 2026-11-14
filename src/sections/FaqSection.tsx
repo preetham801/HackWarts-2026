@@ -45,13 +45,13 @@ const questions = [
 
 export function FaqSection() {
   return (
-    <section id="faqs" className="section section--night section-anchor" aria-labelledby="faqs-title">
+    <section id="faqs" className="section section--night section-anchor faq-section" aria-labelledby="faqs-title">
       <span className="owl-perch-anchor owl-perch-anchor--faqs" data-owl-perch="faqs" aria-hidden="true" />
       <div className="section-inner section-inner--narrow">
-        <SectionHeading id="faqs-title" eyebrow="Frequently asked questions" title="QUESTIONS BEFORE YOUR JOURNEY?" />
-        <div className="faq-list">
+        <SectionHeading className="reveal-on-scroll" id="faqs-title" eyebrow="Frequently asked questions" title="QUESTIONS BEFORE YOUR JOURNEY?" />
+        <div className="faq-list reveal-on-scroll">
           {questions.map(({ id, question, answer }) => (
-            <details className="faq-item" key={id}>
+            <details className="faq-item" data-reveal-item key={id}>
               <summary>
                 <span className="faq-question">{question}</span>
                 <span className="faq-indicator" aria-hidden="true">+</span>

@@ -1,13 +1,12 @@
 import { useEffect, useState } from 'react'
 import { ArrowUpRight, Menu, X } from 'lucide-react'
-import logo from '../assets/branding/hackwarts-2026-logo.jpeg.jpeg'
+import logo from '../assets/branding/hackwarts-2026-logo-transparent.png'
 
 const links = [
   { label: 'Home', href: '#home' },
   { label: 'About', href: '#about' },
   { label: 'The Houses', href: '#houses' },
   { label: 'Timeline', href: '#timeline' },
-  { label: 'Tracks', href: '#tracks' },
   { label: 'Prizes', href: '#rewards' },
   { label: 'Rules', href: '#rules' },
   { label: 'FAQs', href: '#faqs' },
@@ -16,12 +15,45 @@ const links = [
 export function SiteHeader() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [isScrolled, setIsScrolled] = useState(false)
+  const [activeSection, setActiveSection] = useState('home')
 
   useEffect(() => {
     const updateScrollState = () => setIsScrolled(window.scrollY > 24)
     updateScrollState()
     window.addEventListener('scroll', updateScrollState, { passive: true })
     return () => window.removeEventListener('scroll', updateScrollState)
+  }, [])
+
+  useEffect(() => {
+    const sectionIds = [...links.map((link) => link.href.slice(1)), 'registration']
+    const sections = sectionIds
+      .map((id) => document.getElementById(id))
+      .filter((section): section is HTMLElement => section instanceof HTMLElement)
+
+    if (sections.length === 0) return
+
+    const updateActiveSection = () => {
+      const activationLine = window.innerHeight * 0.35
+      const currentSection = sections.find((section) => {
+        const bounds = section.getBoundingClientRect()
+        return bounds.top <= activationLine && bounds.bottom > activationLine
+      })
+
+      if (currentSection) {
+        setActiveSection(currentSection.id)
+      } else if (window.scrollY + window.innerHeight >= document.documentElement.scrollHeight - 2) {
+        setActiveSection(sections[sections.length - 1].id)
+      }
+    }
+
+    const observer = new IntersectionObserver(updateActiveSection, {
+      rootMargin: '-30% 0px -60% 0px',
+      threshold: 0,
+    })
+    sections.forEach((section) => observer.observe(section))
+    updateActiveSection()
+
+    return () => observer.disconnect()
   }, [])
 
   useEffect(() => {
@@ -38,13 +70,16 @@ export function SiteHeader() {
   return (
     <header className={`site-header${isScrolled ? ' site-header--scrolled' : ''}`}>
       <nav aria-label="Main navigation" className="header-inner">
-        <a href="#home" className="brand-link" onClick={closeMenu} aria-label="HackWarts 2026 home">
+        <a href="#home" className="brand-link" onClick={closeMenu} aria-label="HackWarts 2026 home" aria-current={activeSection === 'home' ? 'location' : undefined}>
           <img src={logo} alt="HackWarts 2026" className="brand-logo" />
         </a>
         <div className="desktop-nav">
-          {links.map((link) => <a className="nav-link" key={link.href} href={link.href}>{link.label}</a>)}
+          {links.map((link) => {
+            const isActive = activeSection === link.href.slice(1)
+            return <a className={`nav-link${isActive ? ' nav-link--active' : ''}`} key={link.href} href={link.href} aria-current={isActive ? 'location' : undefined}>{link.label}</a>
+          })}
         </div>
-        <a className="header-register" href="#registration">Register Now <ArrowUpRight size={15} aria-hidden="true" /></a>
+        <a className={`header-register${activeSection === 'registration' ? ' header-register--active' : ''}`} href="#registration" aria-current={activeSection === 'registration' ? 'location' : undefined}>Register Now <ArrowUpRight size={15} aria-hidden="true" /></a>
         <button
           type="button"
           className="menu-toggle"
@@ -55,8 +90,11 @@ export function SiteHeader() {
         >{isMenuOpen ? <X size={21} /> : <Menu size={21} />}</button>
       </nav>
       <div id="mobile-navigation" className={`mobile-nav${isMenuOpen ? ' mobile-nav--open' : ''}`} hidden={!isMenuOpen}>
-        {links.map((link) => <a key={link.href} href={link.href} onClick={closeMenu}>{link.label}</a>)}
-        <a className="mobile-register" href="#registration" onClick={closeMenu}>Register Now <ArrowUpRight size={15} aria-hidden="true" /></a>
+        {links.map((link) => {
+          const isActive = activeSection === link.href.slice(1)
+          return <a className={`mobile-nav__link${isActive ? ' mobile-nav__link--active' : ''}`} key={link.href} href={link.href} onClick={closeMenu} aria-current={isActive ? 'location' : undefined}>{link.label}</a>
+        })}
+        <a className={`mobile-register${activeSection === 'registration' ? ' mobile-register--active' : ''}`} href="#registration" onClick={closeMenu} aria-current={activeSection === 'registration' ? 'location' : undefined}>Register Now <ArrowUpRight size={15} aria-hidden="true" /></a>
       </div>
     </header>
   )

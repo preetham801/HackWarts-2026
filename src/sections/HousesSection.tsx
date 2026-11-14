@@ -1,19 +1,22 @@
 import { useState } from 'react'
 import { SectionHeading } from '../components/SectionHeading'
-import { HouseAnimalCrest } from '../components/HouseAnimalCrest'
+import gryffindorCrest from '../assets/tracks/gryffindor-crest.png'
+import hufflepuffCrest from '../assets/tracks/hufflepuff-crest.png'
+import ravenclawCrest from '../assets/tracks/ravenclaw-crest.png'
+import slytherinCrest from '../assets/tracks/slytherin-crest.png'
 
 const houses = [
-  { name: 'Gryffindor', emblem: 'Lion', animal: 'lion', quality: 'Courage, bravery and bold thinking.', description: 'A House that celebrates courage, bravery, and the confidence to take bold decisions.', tone: 'crimson' },
-  { name: 'Hufflepuff', emblem: 'Badger', animal: 'badger', quality: 'Dedication, loyalty and teamwork.', description: 'A House that values dedication, loyalty, patience, and the strength of working together.', tone: 'amber' },
-  { name: 'Ravenclaw', emblem: 'Eagle', animal: 'eagle', quality: 'Wisdom, creativity and curiosity.', description: 'A House that encourages wisdom, curiosity, creativity, and thoughtful problem-solving.', tone: 'blue' },
-  { name: 'Slytherin', emblem: 'Serpent', animal: 'serpent', quality: 'Ambition, strategy and determination.', description: 'A House that values ambition, strategic thinking, determination, and purposeful leadership.', tone: 'green' },
+  { name: 'Gryffindor', emblem: 'Lion', crest: gryffindorCrest, quality: 'Courage, bravery and bold thinking.', description: 'A House that celebrates courage, bravery, and the confidence to take bold decisions.', tone: 'crimson' },
+  { name: 'Hufflepuff', emblem: 'Badger', crest: hufflepuffCrest, quality: 'Dedication, loyalty and teamwork.', description: 'A House that values dedication, loyalty, patience, and the strength of working together.', tone: 'amber' },
+  { name: 'Ravenclaw', emblem: 'Eagle', crest: ravenclawCrest, quality: 'Wisdom, creativity and curiosity.', description: 'A House that encourages wisdom, curiosity, creativity, and thoughtful problem-solving.', tone: 'blue' },
+  { name: 'Slytherin', emblem: 'Serpent', crest: slytherinCrest, quality: 'Ambition, strategy and determination.', description: 'A House that values ambition, strategic thinking, determination, and purposeful leadership.', tone: 'green' },
 ] as const
 
 export function HousesSection() {
   const [exploredHouse, setExploredHouse] = useState<string | null>(null)
 
   return (
-    <section id="houses" className="section section--dark section-anchor" aria-labelledby="houses-title">
+    <section id="houses" className="section section--dark section-anchor houses-section" aria-labelledby="houses-title">
       <div className="section-inner">
         <SectionHeading id="houses-title" eyebrow="Four identities · One challenge" title="CHOOSE YOUR HOUSE." subtitle="Four houses. Four identities. One extraordinary challenge." />
         <div className="house-grid">
@@ -24,8 +27,16 @@ export function HousesSection() {
             return (
               <article className={`house-card house-card--${house.tone}${isExpanded ? ' is-explored' : ''}`} key={house.name}>
                 <span className="house-index" aria-hidden="true">0{index + 1}</span>
-                <span className="house-emblem" aria-hidden="true">
-                  <HouseAnimalCrest animal={house.animal} />
+                <span className="house-emblem">
+                  <img
+                    className="house-crest-image"
+                    src={house.crest}
+                    alt={`${house.name} heraldic crest with a ${house.emblem.toLowerCase()} emblem`}
+                    width="112"
+                    height="140"
+                    loading="lazy"
+                    decoding="async"
+                  />
                 </span>
                 <p className="house-symbol">{house.emblem}</p>
                 <h3>{house.name}</h3>
@@ -39,7 +50,8 @@ export function HousesSection() {
                   aria-expanded={isExpanded}
                   onClick={() => setExploredHouse((current) => current === house.name ? null : house.name)}
                 >
-                  {isExpanded ? 'Close Details' : 'Explore Qualities'}
+                  <span className="house-explore__label">{isExpanded ? 'Close Details' : 'Explore Qualities'}</span>
+                  <span className="house-explore__shine" aria-hidden="true" />
                 </button>
               </article>
             )

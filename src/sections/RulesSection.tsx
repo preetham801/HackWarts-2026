@@ -23,7 +23,7 @@ function RuleAccordionItem({ rule }: { rule: Rule }) {
   const detailId = `rule-detail-${rule.id}`
 
   return (
-    <article className="rule-item">
+    <article className="rule-item" data-reveal-item>
       <h3 className="rule-item__heading">
         <button
           id={triggerId}
@@ -51,11 +51,11 @@ function RuleAccordionItem({ rule }: { rule: Rule }) {
 
 export function RulesSection() {
   return (
-    <section id="rules" className="section section--paper section-anchor" aria-labelledby="rules-title">
+    <section id="rules" className="section section--night section-anchor rules-section" aria-labelledby="rules-title">
       <span className="owl-perch-anchor owl-perch-anchor--rules" data-owl-perch="rules" aria-hidden="true" />
       <div className="section-inner section-inner--narrow">
-        <SectionHeading id="rules-title" eyebrow="Rules and eligibility" title="THE SCHOOL CODE" />
-        <div className="rules-list" aria-label="Rules and eligibility">
+        <SectionHeading className="reveal-on-scroll" id="rules-title" eyebrow="Rules and eligibility" title="THE SCHOOL CODE" />
+        <div className="rules-list reveal-on-scroll" aria-label="Rules and eligibility">
           {rules.map((rule) => <RuleAccordionItem key={rule.id} rule={rule} />)}
         </div>
       </div>
