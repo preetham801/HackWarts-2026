@@ -57,19 +57,25 @@ export function TimelineSection() {
             </ol>
           </div>
         ) : (
-          <ol className="timeline-2d-list" aria-label="HackWarts Express journey milestones">
-            {timelineMilestones.map((milestone, index) => (
-              <li className={`timeline-2d-stop${activeStop === index ? ' timeline-2d-stop--active' : ''}`} data-timeline-stop-index={index} key={milestone.id}>
-                <span className="timeline-2d-stop__marker" aria-hidden="true">{milestoneNumber(index)}</span>
-                <article className="timeline-2d-card">
-                  <span className="timeline-2d-card__badge">STOP {milestoneNumber(index)}</span>
-                  <h3>{milestone.title}</h3>
-                  <p className="timeline-2d-card__time">{milestone.time ?? 'To be announced'}</p>
-                  <p>{milestone.description}</p>
-                </article>
-              </li>
-            ))}
-          </ol>
+          <div className="timeline-2d-route">
+            <svg className="timeline-2d-track" viewBox="0 0 100 700" preserveAspectRatio="none" aria-hidden="true">
+              <path className="timeline-2d-track__glow" d="M50 50 C82 50 82 150 50 150 C18 150 18 250 50 250 C82 250 82 350 50 350 C18 350 18 450 50 450 C82 450 82 550 50 550 C18 550 18 650 50 650" />
+              <path className="timeline-2d-track__line" d="M50 50 C82 50 82 150 50 150 C18 150 18 250 50 250 C82 250 82 350 50 350 C18 350 18 450 50 450 C82 450 82 550 50 550 C18 550 18 650 50 650" />
+            </svg>
+            <ol className="timeline-2d-list" aria-label="HackWarts Express journey milestones">
+              {timelineMilestones.map((milestone, index) => (
+                <li className={`timeline-2d-stop${activeStop === index ? ' timeline-2d-stop--active' : ''}`} data-timeline-stop-index={index} key={milestone.id}>
+                  <span className="timeline-2d-stop__marker" aria-hidden="true">{milestoneNumber(index)}</span>
+                  <article className="timeline-2d-card">
+                    <span className="timeline-2d-card__badge">STOP {milestoneNumber(index)}</span>
+                    <h3>{milestone.title}</h3>
+                    <p className="timeline-2d-card__time">{milestone.time ?? 'To be announced'}</p>
+                    <p>{milestone.description}</p>
+                  </article>
+                </li>
+              ))}
+            </ol>
+          </div>
         )}
       </div>
     </section>

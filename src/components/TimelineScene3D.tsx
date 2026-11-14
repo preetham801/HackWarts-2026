@@ -206,6 +206,7 @@ export function TimelineScene3D({ progressRef }: TimelineScene3DProps) {
       <ambientLight intensity={0.48} color="#b9c2d0" />
       <directionalLight ref={moonlightRef} position={[-18, 24, 14]} intensity={2.6} color="#d7deea" castShadow shadow-mapSize={[1024, 1024]} />
       <hemisphereLight ref={hemisphereRef} args={['#cbd5e1', '#111116', 1.6]} />
+      <directionalLight position={[22, 8, -8]} intensity={0.95} color="#bcc9dd" />
       <PerspectiveCamera makeDefault position={[0, 7.5, 11]} fov={63} near={0.1} far={220} />
       <Stars radius={90} depth={55} count={420} factor={2.2} saturation={0} fade speed={0.12} />
       <Sparkles count={52} size={2.2} speed={reducedMotion ? 0 : 0.16} opacity={0.5} color="#d6a55d" scale={[54, 7, 15]} position={[0, 2.6, -4]} />
@@ -236,6 +237,7 @@ function TimelineWorld({ curve, progressRef, reducedMotion }: { curve: THREE.Cat
     <>
       <NightLandscape reducedMotion={reducedMotion} />
       <Viaduct curve={curve} />
+      <BridgePierLanterns curve={curve} reducedMotion={reducedMotion} />
       <RailwayAndStations curve={curve} stations={stations} progressRef={progressRef} reducedMotion={reducedMotion} />
       <ExpressTrain3D curve={curve} progressRef={progressRef} engineRef={engineRef} reducedMotion={reducedMotion} />
       <TrainWarmFill engineRef={engineRef} curve={curve} progressRef={progressRef} />
@@ -274,7 +276,7 @@ function Viaduct({ curve }: { curve: THREE.CatmullRomCurve3 }) {
     geometry.translate(0, 0, -2.4)
     return geometry
   }, [])
-  const archMaterial = useMemo(() => new THREE.MeshStandardMaterial({ color: '#38363a', roughness: 0.92, metalness: 0.02, flatShading: true }), [])
+  const archMaterial = useMemo(() => new THREE.MeshStandardMaterial({ color: '#515158', roughness: 0.9, metalness: 0.035, flatShading: true }), [])
   const archTransforms = useMemo(() => arches.map(({ point, rotation }) => {
     const transform = new THREE.Object3D()
     transform.position.set(point.x, 0, point.z)
@@ -289,7 +291,7 @@ function Viaduct({ curve }: { curve: THREE.CatmullRomCurve3 }) {
   const masonrySegmentsPerSide = 90
   const parapetCount = masonrySegmentsPerSide * 2
   const copingCount = parapetCount
-  const masonryColors = useMemo(() => ['#4a4746', '#55504b', '#49464a', '#60574e', '#504c49'].map((color) => new THREE.Color(color)), [])
+  const masonryColors = useMemo(() => ['#504e50', '#605b58', '#505057', '#68615b', '#595558'].map((color) => new THREE.Color(color)), [])
 
   useLayoutEffect(() => {
     archTransforms.forEach((matrix, index) => archMesh.current?.setMatrixAt(index, matrix))
@@ -385,6 +387,33 @@ function RailwayAndStations({ curve, stations, progressRef, reducedMotion }: { c
           <StationWaypointRing position={station.point} progressRef={progressRef} stationProgress={station.progress} reducedMotion={reducedMotion} />
         </group>
       ))}
+    </group>
+  )
+}
+
+function BridgePierLanterns({ curve, reducedMotion }: { curve: THREE.CatmullRomCurve3; reducedMotion: boolean }) {
+  const lights = useMemo(() => Array.from({ length: 7 }, (_, index) => {
+    const progress = (index * 4 + 2) / 30
+    const point = curve.getPointAt(progress)
+    const tangent = curve.getTangentAt(progress).setY(0).normalize()
+    const side = tangent.clone().cross(new THREE.Vector3(0, 1, 0)).normalize()
+    return [-1, 1].map((sign) => point.clone().addScaledVector(side, sign * 4.45).setY(-1.8).toArray() as [number, number, number])
+  }).flat(), [curve])
+  return <>{lights.map((position, index) => <BridgePierLantern key={index} position={position} phase={index * 0.73} reducedMotion={reducedMotion} />)}</>
+}
+
+function BridgePierLantern({ position, phase, reducedMotion }: { position: [number, number, number]; phase: number; reducedMotion: boolean }) {
+  const light = useRef<THREE.PointLight>(null)
+  useFrame(({ clock }) => {
+    if (light.current) light.current.intensity = reducedMotion ? 0.4 : 0.34 + (Math.sin(clock.elapsedTime * 4.3 + phase) + 1) * 0.055
+  })
+  return (
+    <group position={position}>
+      <mesh>
+        <sphereGeometry args={[0.12, 8, 6]} />
+        <meshBasicMaterial color="#ffc66e" toneMapped={false} />
+      </mesh>
+      <pointLight ref={light} color="#ffb85f" intensity={0.4} distance={7} decay={2} />
     </group>
   )
 }

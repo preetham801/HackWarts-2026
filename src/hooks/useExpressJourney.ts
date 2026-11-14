@@ -10,6 +10,7 @@ const journeySnapStops = [0, 1 / 6, 2 / 6, 3 / 6, 4 / 6, 5 / 6, 1]
 export function useExpressJourney(pinnedMode: boolean) {
   const stageRef = useRef<HTMLElementTagNameMap['section']>(null)
   const progressRef = useRef(getTimelineRouteProgress(0))
+  const currentStopRef = useRef(0)
   const [activeStop, setActiveStop] = useState(0)
   const [stationArrival, setStationArrival] = useState(true)
   const cooldownUntilRef = useRef(0)
@@ -31,6 +32,7 @@ export function useExpressJourney(pinnedMode: boolean) {
         if (!Number.isInteger(stopIndex) || stopIndex < 0) return
         const stopProgress = stopIndex / (timelineStationProgress.length - 1)
         progressRef.current = getTimelineRouteProgress(stopProgress)
+        currentStopRef.current = stopIndex
         setActiveStop((currentStop) => currentStop === stopIndex ? currentStop : stopIndex)
         setStationArrival(true)
       }, { rootMargin: '-35% 0px -45% 0px', threshold: 0.01 })
@@ -54,12 +56,32 @@ export function useExpressJourney(pinnedMode: boolean) {
         end: () => `+=${window.innerHeight * 3}`,
         scrub: 0.8,
         snap: {
-          snapTo: journeySnapStops,
+          snapTo: (value) => {
+            if (value >= 0.98) return 1
+            if (value <= 0.02) return 0
+            return journeySnapStops.reduce((nearest, stop) => Math.abs(stop - value) < Math.abs(nearest - value) ? stop : nearest, 0)
+          },
           duration: { min: 0.45, max: 0.9 },
           delay: 0.08,
           ease: 'power2.inOut',
         },
         invalidateOnRefresh: true,
+        onEnter: () => { currentStopRef.current = 0 },
+        onEnterBack: () => {
+          currentStopRef.current = journeySnapStops.length - 1
+          setActiveStop(journeySnapStops.length - 1)
+          setStationArrival(true)
+        },
+        onLeave: () => {
+          currentStopRef.current = journeySnapStops.length - 1
+          progress.value = 1
+          progressRef.current = getTimelineRouteProgress(1)
+        },
+        onLeaveBack: () => {
+          currentStopRef.current = 0
+          progress.value = 0
+          progressRef.current = getTimelineRouteProgress(0)
+        },
       },
       onUpdate: () => {
         const routeProgress = getTimelineRouteProgress(progress.value)
@@ -74,25 +96,27 @@ export function useExpressJourney(pinnedMode: boolean) {
           }
         })
         const isNearStation = stopDistance < 0.055 * 0.4
+        if (isNearStation) currentStopRef.current = nearestStop
         setStationArrival((currentArrival) => currentArrival === isNearStation ? currentArrival : isNearStation)
         if (isNearStation) setActiveStop((currentStop) => currentStop === nearestStop ? currentStop : nearestStop)
       },
     })
 
     const scrollTrigger = journey.scrollTrigger
-    const getNearestStop = (value: number) => journeySnapStops.reduce((nearest, stop, index) => (
-      Math.abs(stop - value) < Math.abs(journeySnapStops[nearest] - value) ? index : nearest
-    ), 0)
-
     const stepToStop = (direction: -1 | 1, event?: Event) => {
       if (!scrollTrigger?.isActive) return false
-      const currentProgress = scrollTrigger.progress
-      const atStartAndLeaving = currentProgress <= 0.015 && direction < 0
-      const atEndAndLeaving = currentProgress >= 0.985 && direction > 0
+      const currentStop = Math.max(0, Math.min(journeySnapStops.length - 1, currentStopRef.current))
+      const atStartAndLeaving = currentStop === 0 && scrollTrigger.progress <= 0.02 && direction < 0
+      const atEndAndLeaving = currentStop === journeySnapStops.length - 1 && scrollTrigger.progress >= 0.98 && direction > 0
       if (atStartAndLeaving || atEndAndLeaving) {
         scrollTweenRef.current?.kill()
         scrollTweenRef.current = null
         cooldownUntilRef.current = 0
+        const endpointProgress = atEndAndLeaving ? 1 : 0
+        scrollTrigger.scroll(atEndAndLeaving ? scrollTrigger.end : scrollTrigger.start)
+        progress.value = endpointProgress
+        progressRef.current = getTimelineRouteProgress(endpointProgress)
+        ScrollTrigger.update()
         return false
       }
 
@@ -100,8 +124,8 @@ export function useExpressJourney(pinnedMode: boolean) {
       const now = performance.now()
       if (now < cooldownUntilRef.current) return true
 
-      const currentStop = getNearestStop(currentProgress)
       const destinationStop = Math.max(0, Math.min(journeySnapStops.length - 1, currentStop + direction))
+      currentStopRef.current = destinationStop
       const destinationProgress = journeySnapStops[destinationStop]
       const destinationScroll = scrollTrigger.start + destinationProgress * (scrollTrigger.end - scrollTrigger.start)
       const scrollPosition = { value: scrollTrigger.scroll() }
