@@ -12,6 +12,10 @@ export function useExpressJourney(pinnedMode: boolean) {
   const progressRef = useRef(getTimelineRouteProgress(0))
   const [activeStop, setActiveStop] = useState(0)
   const [stationArrival, setStationArrival] = useState(true)
+  const cooldownUntilRef = useRef(0)
+  const scrollTweenRef = useRef<gsap.core.Tween | null>(null)
+  const touchStartYRef = useRef<number | null>(null)
+  const touchGestureHandledRef = useRef(false)
 
   useLayoutEffect(() => {
     const stage = stageRef.current
@@ -46,7 +50,8 @@ export function useExpressJourney(pinnedMode: boolean) {
         pinSpacing: true,
         anticipatePin: 1,
         start: 'top top',
-        end: () => `+=${window.innerHeight * 7.5}`,
+        id: 'hackwarts-express-journey',
+        end: () => `+=${window.innerHeight * 3}`,
         scrub: 0.8,
         snap: {
           snapTo: journeySnapStops,
@@ -74,6 +79,76 @@ export function useExpressJourney(pinnedMode: boolean) {
       },
     })
 
+    const scrollTrigger = journey.scrollTrigger
+    const getNearestStop = (value: number) => journeySnapStops.reduce((nearest, stop, index) => (
+      Math.abs(stop - value) < Math.abs(journeySnapStops[nearest] - value) ? index : nearest
+    ), 0)
+
+    const stepToStop = (direction: -1 | 1, event?: Event) => {
+      if (!scrollTrigger?.isActive) return false
+      const currentProgress = scrollTrigger.progress
+      const atStartAndLeaving = currentProgress <= 0.015 && direction < 0
+      const atEndAndLeaving = currentProgress >= 0.985 && direction > 0
+      if (atStartAndLeaving || atEndAndLeaving) {
+        scrollTweenRef.current?.kill()
+        scrollTweenRef.current = null
+        cooldownUntilRef.current = 0
+        return false
+      }
+
+      event?.preventDefault()
+      const now = performance.now()
+      if (now < cooldownUntilRef.current) return true
+
+      const currentStop = getNearestStop(currentProgress)
+      const destinationStop = Math.max(0, Math.min(journeySnapStops.length - 1, currentStop + direction))
+      const destinationProgress = journeySnapStops[destinationStop]
+      const destinationScroll = scrollTrigger.start + destinationProgress * (scrollTrigger.end - scrollTrigger.start)
+      const scrollPosition = { value: scrollTrigger.scroll() }
+      scrollTweenRef.current?.kill()
+      cooldownUntilRef.current = now + 650
+      scrollTweenRef.current = gsap.to(scrollPosition, {
+        value: destinationScroll,
+        duration: 0.52,
+        ease: 'power2.inOut',
+        onUpdate: () => {
+          if (!scrollTrigger.isActive) return
+          scrollTrigger.scroll(scrollPosition.value)
+          ScrollTrigger.update()
+        },
+        onComplete: () => { scrollTweenRef.current = null },
+      })
+      return true
+    }
+
+    const handleWheel = (event: WheelEvent) => {
+      if (event.ctrlKey || Math.abs(event.deltaY) <= 18) return
+      stepToStop(event.deltaY > 0 ? 1 : -1, event)
+    }
+    const handleTouchStart = (event: TouchEvent) => {
+      touchStartYRef.current = event.touches[0]?.clientY ?? null
+      touchGestureHandledRef.current = false
+    }
+    const handleTouchMove = (event: TouchEvent) => {
+      if (touchStartYRef.current === null || touchGestureHandledRef.current) return
+      const currentY = event.touches[0]?.clientY
+      if (currentY === undefined) return
+      const delta = touchStartYRef.current - currentY
+      if (Math.abs(delta) <= 18 || !scrollTrigger?.isActive) return
+      const handled = stepToStop(delta > 0 ? 1 : -1, event)
+      if (handled) touchGestureHandledRef.current = true
+    }
+    const handleTouchEnd = () => {
+      touchStartYRef.current = null
+      touchGestureHandledRef.current = false
+    }
+
+    window.addEventListener('wheel', handleWheel, { passive: false })
+    stage.addEventListener('touchstart', handleTouchStart, { passive: true })
+    stage.addEventListener('touchmove', handleTouchMove, { passive: false })
+    stage.addEventListener('touchend', handleTouchEnd, { passive: true })
+    stage.addEventListener('touchcancel', handleTouchEnd, { passive: true })
+
     const resizeObserver = new ResizeObserver(() => ScrollTrigger.refresh())
     resizeObserver.observe(stage)
     const refreshOnResize = () => ScrollTrigger.refresh()
@@ -81,6 +156,13 @@ export function useExpressJourney(pinnedMode: boolean) {
 
     return () => {
       resizeObserver.disconnect()
+      window.removeEventListener('wheel', handleWheel)
+      stage.removeEventListener('touchstart', handleTouchStart)
+      stage.removeEventListener('touchmove', handleTouchMove)
+      stage.removeEventListener('touchend', handleTouchEnd)
+      stage.removeEventListener('touchcancel', handleTouchEnd)
+      scrollTweenRef.current?.kill()
+      scrollTweenRef.current = null
       window.removeEventListener('resize', refreshOnResize)
       journey.scrollTrigger?.kill()
       journey.kill()

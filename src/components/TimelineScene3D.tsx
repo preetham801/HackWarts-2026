@@ -11,11 +11,11 @@ const stationStops = timelineStationProgress.map(getTimelineRouteProgress)
 
 function JourneyAtmosphere({ progressRef, moonlightRef, hemisphereRef }: { progressRef: MutableRefObject<number>; moonlightRef: RefObject<THREE.DirectionalLight | null>; hemisphereRef: RefObject<THREE.HemisphereLight | null> }) {
   const palette = useMemo(() => ({
-    twilight: new THREE.Color('#162038'),
-    dusk: new THREE.Color('#1b1429'),
-    midnight: new THREE.Color('#060913'),
-    twilightLight: new THREE.Color('#d6c48f'),
-    midnightLight: new THREE.Color('#90a9d0'),
+    twilight: new THREE.Color('#030305'),
+    dusk: new THREE.Color('#09090d'),
+    midnight: new THREE.Color('#050508'),
+    twilightLight: new THREE.Color('#d7deea'),
+    midnightLight: new THREE.Color('#94a3b8'),
   }), [])
   const background = useRef<THREE.Color>(null)
   const fog = useRef<THREE.FogExp2>(null)
@@ -30,8 +30,8 @@ function JourneyAtmosphere({ progressRef, moonlightRef, hemisphereRef }: { progr
     } else {
       background.current.lerpColors(palette.dusk, palette.midnight, (amount - 0.5) * 2)
     }
-    fog.current.color.copy(background.current)
-    fog.current.density = 0.009 + amount * 0.0025
+    fog.current.color.set('#050508')
+    fog.current.density = 0.011 + amount * 0.002
     if (moonlightRef.current) {
       moonlightRef.current.intensity = 2.6 - amount * 0.3
       moonlightRef.current.color.lerpColors(palette.twilightLight, palette.midnightLight, amount)
@@ -40,8 +40,8 @@ function JourneyAtmosphere({ progressRef, moonlightRef, hemisphereRef }: { progr
   })
 
   return <>
-    <color ref={background} attach="background" args={['#162038']} />
-    <fogExp2 ref={fog} attach="fog" args={['#162038', 0.012]} />
+    <color ref={background} attach="background" args={['#030305']} />
+    <fogExp2 ref={fog} attach="fog" args={['#050508', 0.011]} />
   </>
 }
 
@@ -73,28 +73,30 @@ const highlandSkyFragmentShader = `
   void main() {
     vec3 direction = normalize(vDirection);
     float horizon = smoothstep(-0.28, 0.34, direction.y);
-    vec3 zenith = mix(vec3(0.055, 0.085, 0.17), vec3(0.025, 0.035, 0.085), uProgress);
-    vec3 horizonColor = mix(vec3(0.13, 0.22, 0.34), vec3(0.07, 0.13, 0.21), uProgress);
+    vec3 zenith = mix(vec3(0.012, 0.012, 0.018), vec3(0.025, 0.027, 0.036), uProgress);
+    vec3 horizonColor = mix(vec3(0.075, 0.08, 0.095), vec3(0.035, 0.038, 0.048), uProgress);
     vec3 sky = mix(horizonColor, zenith, horizon);
-    float amberGlow = exp(-abs(direction.y + 0.065) * 12.0) * exp(-abs(direction.x + 0.18) * 1.8);
-    float emeraldGlow = exp(-abs(direction.y + 0.09) * 15.0) * exp(-abs(direction.x - 0.5) * 3.5);
-    sky += vec3(0.28, 0.13, 0.045) * amberGlow * (1.0 - uProgress * 0.65);
-    sky += vec3(0.025, 0.11, 0.075) * emeraldGlow * (1.0 - uProgress * 0.45);
     vec2 cloudUv = direction.xz / max(0.2, abs(direction.y) + 0.3) * 2.4;
     float cloudField = noise2(cloudUv * 2.5 + vec2(uTime * 0.012, -uTime * 0.007));
     float cloudDetail = noise2(cloudUv * 6.5 - vec2(uTime * 0.018, uTime * 0.011));
-    float clouds = smoothstep(0.57, 0.82, cloudField * 0.78 + cloudDetail * 0.22) * (1.0 - smoothstep(0.08, 0.5, direction.y));
-    sky = mix(sky, vec3(0.28, 0.34, 0.43), clouds * 0.32);
+    float clouds = smoothstep(0.54, 0.81, cloudField * 0.78 + cloudDetail * 0.22) * (1.0 - smoothstep(0.08, 0.5, direction.y));
+    float ashHighlight = smoothstep(0.58, 0.9, cloudDetail * 0.62 + cloudField * 0.38) * clouds;
+    sky = mix(sky, vec3(0.16, 0.17, 0.19), clouds * 0.52);
+    sky += vec3(0.29, 0.32, 0.36) * ashHighlight * 0.5;
+    float rayAxis = abs(direction.x * 0.58 + direction.z * 0.82);
+    float moonRays = pow(max(0.0, sin(rayAxis * 31.0 + cloudField * 2.0)), 28.0);
+    moonRays *= exp(-abs(direction.y + 0.12) * 3.8) * clouds * 0.18;
+    sky += vec3(0.43, 0.47, 0.53) * moonRays;
     vec2 starCell = floor(direction.xz * 380.0 + direction.y * 180.0);
     float starSeed = hash21(starCell);
     float stars = step(0.9974, starSeed) * smoothstep(-0.02, 0.35, direction.y);
     float twinkle = 0.62 + 0.38 * sin(uTime * (1.4 + starSeed * 4.0) + starSeed * 90.0);
-    sky += vec3(0.72, 0.78, 0.9) * stars * twinkle;
+    sky += vec3(0.78, 0.82, 0.88) * stars * twinkle;
     float moonDot = dot(direction, normalize(uMoonDirection));
     float moonDisc = smoothstep(0.9990, 0.99965, moonDot);
     float moonHalo = exp(-max(0.0, 1.0 - moonDot) * 95.0);
-    sky += vec3(1.0, 0.82, 0.56) * moonHalo * 0.38;
-    sky = mix(sky, vec3(1.0, 0.91, 0.72), moonDisc);
+    sky += vec3(0.77, 0.82, 0.9) * moonHalo * 0.52;
+    sky = mix(sky, vec3(0.96, 0.97, 1.0), moonDisc);
     gl_FragColor = vec4(sky, 1.0);
   }
 `
@@ -127,19 +129,15 @@ function SkyDome({ progressRef, reducedMotion }: { progressRef: MutableRefObject
 
 const blackLakeVertexShader = `
   varying vec2 vUv;
-  varying vec3 vWorldPosition;
   void main() {
     vUv = uv;
-    vec4 worldPosition = modelMatrix * vec4(position, 1.0);
-    vWorldPosition = worldPosition.xyz;
-    gl_Position = projectionMatrix * viewMatrix * worldPosition;
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
   }
 `
 
 const blackLakeFragmentShader = `
   uniform float uTime;
   varying vec2 vUv;
-  varying vec3 vWorldPosition;
   void main() {
     vec2 uv = vUv;
     float rippleA = sin(uv.x * 420.0 + sin(uv.y * 30.0 + uTime * 0.28) * 2.2 + uTime * 0.5);
@@ -148,10 +146,13 @@ const blackLakeFragmentShader = `
     float horizonReflection = exp(-abs(uv.y - 0.55) * 18.0);
     float moonSheen = pow(max(0.0, 1.0 - abs(uv.x - 0.72) * 2.0), 7.0) * horizonReflection;
     float glint = smoothstep(0.72, 1.0, rippleA * 0.42 + rippleB * 0.32 + rippleC * 0.26) * 0.2;
-    vec3 water = vec3(0.018, 0.035, 0.064) + vec3(0.025, 0.05, 0.075) * glint;
-    water += vec3(0.16, 0.19, 0.23) * moonSheen * (0.28 + glint);
-    water += vec3(0.12, 0.065, 0.026) * smoothstep(0.93, 1.0, rippleB) * horizonReflection * 0.12;
-    gl_FragColor = vec4(water, 1.0);
+    vec3 water = vec3(0.008, 0.008, 0.012) + vec3(0.025, 0.028, 0.035) * glint;
+    water += vec3(0.28, 0.31, 0.36) * moonSheen * (0.24 + glint);
+    water += vec3(0.12, 0.065, 0.026) * smoothstep(0.93, 1.0, rippleB) * horizonReflection * 0.08;
+    float radius = length(uv * 2.0 - 1.0);
+    float edgeFade = 1.0 - smoothstep(0.55, 1.0, radius);
+    vec3 fogColor = vec3(0.012, 0.012, 0.016);
+    gl_FragColor = vec4(mix(fogColor, water, edgeFade), edgeFade);
   }
 `
 
@@ -162,8 +163,8 @@ function BlackLake({ reducedMotion }: { reducedMotion: boolean }) {
   })
   return (
     <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -7.6, -8]} receiveShadow>
-      <planeGeometry args={[210, 160, 1, 1]} />
-      <shaderMaterial ref={material} vertexShader={blackLakeVertexShader} fragmentShader={blackLakeFragmentShader} uniforms={{ uTime: { value: 0 } }} side={THREE.DoubleSide} />
+      <circleGeometry args={[360, 128]} />
+      <shaderMaterial ref={material} vertexShader={blackLakeVertexShader} fragmentShader={blackLakeFragmentShader} uniforms={{ uTime: { value: 0 } }} side={THREE.DoubleSide} transparent depthWrite={false} />
     </mesh>
   )
 }
@@ -197,15 +198,15 @@ export function TimelineScene3D({ progressRef }: TimelineScene3DProps) {
       className="timeline-canvas"
       aria-hidden="true"
       dpr={[1, 1.5]}
-      camera={{ position: [0, 7.5, 11], fov: 55, near: 0.1, far: 180 }}
+      camera={{ position: [0, 7.5, 11], fov: 63, near: 0.1, far: 220 }}
       gl={{ antialias: true, alpha: false, powerPreference: 'high-performance' }}
     >
       <JourneyAtmosphere progressRef={progressRef} moonlightRef={moonlightRef} hemisphereRef={hemisphereRef} />
       <SkyDome progressRef={progressRef} reducedMotion={reducedMotion} />
-      <ambientLight intensity={0.58} color="#acb9ca" />
-      <directionalLight ref={moonlightRef} position={[-18, 24, 14]} intensity={2.6} color="#d6c48f" castShadow shadow-mapSize={[1024, 1024]} />
-      <hemisphereLight ref={hemisphereRef} args={['#6b8cce', '#1e293b', 1.6]} />
-      <PerspectiveCamera makeDefault position={[0, 7.5, 11]} fov={55} near={0.1} far={180} />
+      <ambientLight intensity={0.48} color="#b9c2d0" />
+      <directionalLight ref={moonlightRef} position={[-18, 24, 14]} intensity={2.6} color="#d7deea" castShadow shadow-mapSize={[1024, 1024]} />
+      <hemisphereLight ref={hemisphereRef} args={['#cbd5e1', '#111116', 1.6]} />
+      <PerspectiveCamera makeDefault position={[0, 7.5, 11]} fov={63} near={0.1} far={220} />
       <Stars radius={90} depth={55} count={420} factor={2.2} saturation={0} fade speed={0.12} />
       <Sparkles count={52} size={2.2} speed={reducedMotion ? 0 : 0.16} opacity={0.5} color="#d6a55d" scale={[54, 7, 15]} position={[0, 2.6, -4]} />
       <Sparkles count={24} size={2.8} speed={reducedMotion ? 0 : 0.1} opacity={0.26} color="#91a9cf" scale={[48, 5, 12]} position={[0, 1.2, 5]} />
@@ -234,7 +235,7 @@ function TimelineWorld({ curve, progressRef, reducedMotion }: { curve: THREE.Cat
   return (
     <>
       <NightLandscape reducedMotion={reducedMotion} />
-      <ForestAndViaduct curve={curve} reducedMotion={reducedMotion} />
+      <Viaduct curve={curve} />
       <RailwayAndStations curve={curve} stations={stations} progressRef={progressRef} reducedMotion={reducedMotion} />
       <ExpressTrain3D curve={curve} progressRef={progressRef} engineRef={engineRef} reducedMotion={reducedMotion} />
       <TrainWarmFill engineRef={engineRef} curve={curve} progressRef={progressRef} />
@@ -248,98 +249,10 @@ function NightLandscape({ reducedMotion }: { reducedMotion: boolean }) {
   return (
     <group>
       <BlackLake reducedMotion={reducedMotion} />
-      <HighlandTerrain seed={2.4} position={[0, -12, -44]} />
-      <HighlandTerrain seed={8.7} position={[0, -15, -72]} />
-      <HighlandTerrain seed={15.3} position={[0, -17, -98]} />
-      <HighlandCastle />
     </group>
   )
 }
-
-function buildHighlandHeightmap(seed: number) {
-  const geometry = new THREE.PlaneGeometry(280, 84, 168, 56)
-  geometry.rotateX(-Math.PI / 2)
-  const positions = geometry.attributes.position
-  const colors = new Float32Array(positions.count * 3)
-  const heather = new THREE.Color('#18252a')
-  const slate = new THREE.Color('#303c47')
-  const moonlitStone = new THREE.Color('#78818a')
-  for (let index = 0; index < positions.count; index += 1) {
-    const x = positions.getX(index)
-    const z = positions.getZ(index)
-    const broadRidge = Math.sin(x * 0.019 + seed) * 5.2 + Math.sin(x * 0.046 - seed * 0.7) * 2.1
-    const crossRidge = Math.cos(z * 0.072 + seed * 1.8) * 1.8
-    const crag = Math.sin((x + z) * 0.12 + seed) * Math.cos(x * 0.083 - z * 0.06) * 1.45
-    const height = Math.max(-1.5, 8.2 + broadRidge + crossRidge + crag)
-    positions.setY(index, height)
-    const elevation = THREE.MathUtils.clamp((height - 2) / 12, 0, 1)
-    const color = heather.clone().lerp(slate, elevation)
-    if (elevation > 0.64) color.lerp(moonlitStone, (elevation - 0.64) * 1.6)
-    const variation = 0.92 + (Math.sin(x * 0.21 + z * 0.17 + seed) * 0.035)
-    colors[index * 3] = color.r * variation
-    colors[index * 3 + 1] = color.g * variation
-    colors[index * 3 + 2] = color.b * variation
-  }
-  geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3))
-  geometry.computeVertexNormals()
-  return geometry
-}
-
-function HighlandTerrain({ seed, position }: { seed: number; position: [number, number, number] }) {
-  const geometry = useMemo(() => buildHighlandHeightmap(seed), [seed])
-  useEffect(() => () => geometry.dispose(), [geometry])
-  return (
-    <mesh geometry={geometry} position={position} receiveShadow>
-      <meshStandardMaterial vertexColors roughness={0.94} metalness={0.06} side={THREE.DoubleSide} />
-    </mesh>
-  )
-}
-
-function HighlandCastle() {
-  const towers = useMemo(() => [
-    [-3.8, 3.2, 0.4], [-1.7, 4.8, -0.8], [0.4, 3.6, 0.3], [2.5, 5.6, -0.4], [4.5, 3.4, 0.5],
-  ] as const, [])
-  return (
-    <group position={[99, 3.4, -66]} rotation={[0, -0.12, 0]} scale={[1.4, 1.25, 1.4]}>
-      <mesh position={[0, 0, 0]} castShadow>
-        <boxGeometry args={[13, 5.2, 5.2]} />
-        <meshStandardMaterial color="#22252e" roughness={0.9} />
-      </mesh>
-      {towers.map(([x, height, z], index) => (
-        <group key={index} position={[x, height / 2 + 2.2, z]}>
-          <mesh castShadow><cylinderGeometry args={[0.85, 1.05, height, 8]} /><meshStandardMaterial color="#30303a" roughness={0.84} /></mesh>
-          <mesh position={[0, height / 2 + 0.72, 0]}><coneGeometry args={[1.18, 1.6, 8]} /><meshStandardMaterial color="#111722" roughness={0.88} /></mesh>
-          {[-0.35, 0.35].map((windowX) => (
-            <mesh key={windowX} position={[windowX, -0.15, 0.86]}>
-              <boxGeometry args={[0.16, 0.48, 0.06]} />
-              <meshStandardMaterial color="#ffce75" emissive="#ff9d31" emissiveIntensity={1.1} />
-            </mesh>
-          ))}
-        </group>
-      ))}
-      {Array.from({ length: 8 }, (_, index) => (
-        <mesh key={index} position={[-5.1 + index * 1.45, 0.1, 2.65]}>
-          <boxGeometry args={[0.22, 0.72, 0.08]} />
-          <meshStandardMaterial color="#f0b24f" emissive="#df7c25" emissiveIntensity={0.65} />
-        </mesh>
-      ))}
-    </group>
-  )
-}
-
-function ForestAndViaduct({ curve, reducedMotion }: { curve: THREE.CatmullRomCurve3; reducedMotion: boolean }) {
-  const treeData = useMemo(() => Array.from({ length: 132 }, (_, index) => ({
-    x: -98 + (index * 47 % 197),
-    z: (index % 2 === 0 ? -1 : 1) * (12 + (index * 19 % 27)),
-    height: 5 + (index * 7 % 30) * 0.18,
-    width: 0.58 + (index * 3 % 7) * 0.1,
-    phase: index * 0.53,
-  })), [])
-  const trunkMesh = useRef<THREE.InstancedMesh>(null)
-  const crownMesh = useRef<THREE.InstancedMesh>(null)
-  const branchMesh = useRef<THREE.InstancedMesh>(null)
-  const treesTransform = useMemo(() => new THREE.Object3D(), [])
-  const treesInitialized = useRef(false)
+function Viaduct({ curve }: { curve: THREE.CatmullRomCurve3 }) {
   const arches = useMemo(() => Array.from({ length: 31 }, (_, index) => {
     const progress = index / 30
     const point = curve.getPointAt(progress)
@@ -406,48 +319,8 @@ function ForestAndViaduct({ curve, reducedMotion }: { curve: THREE.CatmullRomCur
     if (copingMesh.current) copingMesh.current.instanceMatrix.needsUpdate = true
   }, [archTransforms, curve, masonryColors, masonryTransform])
 
-  useFrame(({ clock }) => {
-    if (reducedMotion && treesInitialized.current) return
-    treeData.forEach((tree, index) => {
-      const sway = reducedMotion ? 0 : Math.sin(clock.elapsedTime * 0.42 + tree.phase) * 0.035
-      treesTransform.position.set(tree.x, tree.height / 2 - 0.65, tree.z)
-      treesTransform.rotation.set(sway, 0, Math.sin(tree.phase) * 0.06)
-      treesTransform.scale.set(tree.width, tree.height / 3.8, tree.width)
-      treesTransform.updateMatrix()
-      trunkMesh.current?.setMatrixAt(index, treesTransform.matrix)
-
-      treesTransform.position.set(tree.x, tree.height * 0.58 - 0.65, tree.z)
-      treesTransform.rotation.set(sway, 0, Math.sin(tree.phase) * 0.06)
-      treesTransform.scale.set(tree.width * 1.9, tree.height * 0.64, tree.width * 1.9)
-      treesTransform.updateMatrix()
-      crownMesh.current?.setMatrixAt(index, treesTransform.matrix)
-
-      treesTransform.position.set(tree.x + Math.sin(tree.phase) * 0.56, tree.height * 0.8 - 0.65, tree.z + 0.15)
-      treesTransform.rotation.set(sway + 0.3, 0, Math.cos(tree.phase) * 0.48)
-      treesTransform.scale.set(tree.width * 0.58, tree.height * 0.38, tree.width * 0.58)
-      treesTransform.updateMatrix()
-      branchMesh.current?.setMatrixAt(index, treesTransform.matrix)
-    })
-    if (trunkMesh.current) trunkMesh.current.instanceMatrix.needsUpdate = true
-    if (crownMesh.current) crownMesh.current.instanceMatrix.needsUpdate = true
-    if (branchMesh.current) branchMesh.current.instanceMatrix.needsUpdate = true
-    treesInitialized.current = true
-  })
-
   return (
     <group>
-      <instancedMesh ref={trunkMesh} args={[undefined, undefined, treeData.length]} castShadow receiveShadow>
-        <cylinderGeometry args={[0.08, 0.28, 3.8, 5]} />
-        <meshStandardMaterial color="#17171d" roughness={1} flatShading />
-      </instancedMesh>
-      <instancedMesh ref={crownMesh} args={[undefined, undefined, treeData.length]} castShadow>
-        <coneGeometry args={[1, 1, 5]} />
-        <meshStandardMaterial color="#11151e" roughness={1} flatShading />
-      </instancedMesh>
-      <instancedMesh ref={branchMesh} args={[undefined, undefined, treeData.length]} castShadow>
-        <coneGeometry args={[1, 1, 4]} />
-        <meshStandardMaterial color="#19171d" roughness={1} flatShading />
-      </instancedMesh>
       <instancedMesh ref={parapetMesh} args={[undefined, undefined, parapetCount]} castShadow receiveShadow>
         <boxGeometry args={[0.54, 1.42, 1.18]} />
         <meshStandardMaterial color="#ffffff" roughness={0.96} flatShading />
@@ -701,7 +574,7 @@ function MistRibbon({ x, y, z, speed, opacity, reducedMotion }: { x: number; y: 
 }
 
 function CameraFollow({ engineRef, curve, progressRef, reducedMotion }: { engineRef: RefObject<THREE.Group | null>; curve: THREE.CatmullRomCurve3; progressRef: MutableRefObject<number>; reducedMotion: boolean }) {
-  const { camera, size } = useThree()
+  const size = useThree((state) => state.size)
   const desiredPosition = useRef(new THREE.Vector3())
   const currentLookTarget = useRef(new THREE.Vector3())
   const consistCenter = useRef(new THREE.Vector3())
@@ -710,29 +583,25 @@ function CameraFollow({ engineRef, curve, progressRef, reducedMotion }: { engine
   const lookTarget = useRef(new THREE.Vector3())
   const worldUp = useMemo(() => new THREE.Vector3(0, 1, 0), [])
   const hasCameraTarget = useRef(false)
-  const previousMobileMode = useRef<boolean | null>(null)
 
-  useFrame((_, delta) => {
+  useFrame((state, delta) => {
+    const { camera } = state
     const engine = engineRef.current
     if (!engine) return
     const isMobile = size.width < 700
-    if (camera instanceof THREE.PerspectiveCamera && previousMobileMode.current !== isMobile) {
-      camera.fov = isMobile ? 76 : 55
-      camera.updateProjectionMatrix()
-      previousMobileMode.current = isMobile
-    }
     const tangent = routeTangent.current
     curve.getTangentAt(progressRef.current, tangent).setY(0).normalize()
     const center = consistCenter.current.copy(engine.position).addScaledVector(tangent, -expressTrainCarSpacingDistance * 1.5)
     const right = rightVector.current.copy(tangent).cross(worldUp).normalize()
-    const sideOffset = isMobile ? 21 : 16.5
-    const verticalOffset = isMobile ? 5.5 : 4.2
+    const tangentOffset = isMobile ? 15.5 : 13.5
+    const sideOffset = isMobile ? 14 : 11.5
+    const verticalOffset = isMobile ? 11.5 : 9.5
     desiredPosition.current.set(
-      center.x + right.x * sideOffset + tangent.x * 2.5,
+      center.x + right.x * sideOffset + tangent.x * tangentOffset,
       center.y + verticalOffset,
-      center.z + right.z * sideOffset + tangent.z * 2.5,
+      center.z + right.z * sideOffset + tangent.z * tangentOffset,
     )
-    lookTarget.current.copy(center).addScaledVector(worldUp, 1.4)
+    lookTarget.current.copy(center).addScaledVector(tangent, 1.5).addScaledVector(worldUp, 1.2)
 
     if (!hasCameraTarget.current) {
       currentLookTarget.current.copy(lookTarget.current)
