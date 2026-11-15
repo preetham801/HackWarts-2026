@@ -1,4 +1,5 @@
 import { ArrowDown, ArrowUpRight } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import castleBackground from '../assets/hackwarts-magical-hero.png'
 import logo from '../assets/branding/hackwarts-2026-logo-transparent.png'
 
@@ -13,7 +14,7 @@ export function HeroSection() {
         <h1 id="hero-title" className="hero-tagline">Where Code Becomes Magic.</h1>
         <p className="hero-intro">A national level hackathon hosted at Sri Siddhartha School of Engineering.</p>
         <div className="hero-actions">
-          <a className="button button--gold" href="#registration">Register Now <ArrowUpRight size={16} aria-hidden="true" /></a>
+          <Link className="button button--gold" to="/register">Register Now <ArrowUpRight size={16} aria-hidden="true" /></Link>
           <a className="button button--quiet" href="#about">Explore the School</a>
         </div>
         <p className="hero-date">Event date to be announced</p>
