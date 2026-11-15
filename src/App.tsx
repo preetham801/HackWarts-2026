@@ -9,6 +9,7 @@ import { RewardsSection } from './sections/RewardsSection'
 import { RulesSection } from './sections/RulesSection'
 import { TimelineSection } from './sections/TimelineSection'
 import { EnchantedWandCursor } from './components/EnchantedWandCursor'
+import { WizardingBgmPlayer } from './components/WizardingBgmPlayer'
 import { useScrollReveal } from './hooks/useScrollReveal'
 
 function App() {
@@ -29,6 +30,7 @@ function App() {
       </main>
       <FooterStrip />
       <EnchantedWandCursor />
+      <WizardingBgmPlayer />
     </div>
   )
 }
