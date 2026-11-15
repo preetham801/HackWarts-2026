@@ -858,6 +858,7 @@ a { color: inherit; }
   line-height: 1.35;
   pointer-events: auto;
 }
+.wizarding-bgm-entry-prompt > span { min-width: 0; flex: 1; }
 .wizarding-bgm-entry-prompt button {
   display: inline-grid;
   width: 30px;
