@@ -95,6 +95,140 @@ app.post('/api/verify-payment', (request, response) => {
   }
 })
 
+app.post('/api/submit-registration', async (request, response) => {
+  const {
+    teamName,
+    leaderName,
+    email,
+    phone,
+    college,
+    teamSize,
+    member1 = '',
+    member2 = '',
+    member3 = '',
+    member4 = '',
+    house = '',
+    razorpay_order_id: orderId,
+    razorpay_payment_id: paymentId,
+    razorpay_signature: signature,
+  } = request.body ?? {}
+
+  if (
+    typeof teamName !== 'string' || !teamName.trim() ||
+    typeof leaderName !== 'string' || !leaderName.trim() ||
+    typeof email !== 'string' || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ||
+    typeof phone !== 'string' || !/^\d{10}$/.test(phone) ||
+    typeof college !== 'string' || !college.trim() ||
+    !Number.isInteger(teamSize) || teamSize < 1 ||
+    ![member1, member2, member3, member4, house].every((value) => typeof value === 'string') ||
+    typeof orderId !== 'string' || !orderId ||
+    typeof paymentId !== 'string' || !paymentId ||
+    typeof signature !== 'string' || !/^[a-f0-9]{64}$/i.test(signature)
+  ) {
+    response.status(400).json({ error: 'Registration details and valid Razorpay payment fields are required.' })
+    return
+  }
+
+  let keySecret
+  try {
+    ({ keySecret } = getRazorpayCredentials())
+  } catch (error) {
+    response.status(error.statusCode ?? 503).json({ error: error.message })
+    return
+  }
+
+  if (!verifyPaymentSignature({ orderId, paymentId, signature, secret: keySecret })) {
+    response.status(400).json({ error: 'Payment signature verification failed.' })
+    return
+  }
+
+  const appsScriptUrl = process.env.APPS_SCRIPT_URL || process.env.VITE_APPS_SCRIPT_URL
+  if (!appsScriptUrl) {
+    response.status(503).json({ error: 'Google Sheets submission is not configured on the server.' })
+    return
+  }
+
+  let appsScriptTarget
+  try {
+    const target = new URL(appsScriptUrl)
+    if (target.protocol !== 'https:' || target.hostname !== 'script.google.com') {
+      throw new Error('Unsupported Google Apps Script URL.')
+    }
+    appsScriptTarget = `${target.origin}${target.pathname}`
+  } catch {
+    response.status(503).json({ error: 'Google Sheets URL must be a valid HTTPS Apps Script deployment URL.' })
+    return
+  }
+
+  console.info(`Posting registration to Google Apps Script: ${appsScriptTarget}`)
+
+  let appsScriptResponse
+  try {
+    appsScriptResponse = await fetch(appsScriptUrl, {
+      method: 'POST',
+      redirect: 'follow',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        teamName: teamName.trim(),
+        leaderName: leaderName.trim(),
+        email: email.trim(),
+        phone,
+        college: college.trim(),
+        teamSize,
+        member1,
+        member2,
+        member3,
+        member4,
+        house,
+        paymentId,
+      }),
+      signal: AbortSignal.timeout(20000),
+    })
+  } catch (error) {
+    const timedOut = error.name === 'TimeoutError'
+    response.status(timedOut ? 504 : 502).json({
+      error: timedOut
+        ? 'Google Sheets did not respond in time. Keep your payment ID and contact the event organizers before retrying.'
+        : 'Could not reach Google Sheets. Keep your payment ID and contact the event organizers before retrying.',
+    })
+    return
+  }
+
+  if (!appsScriptResponse.ok) {
+    const finalUrl = new URL(appsScriptResponse.url)
+    const finalTarget = `${finalUrl.origin}${finalUrl.pathname}`
+    console.error(`Google Apps Script returned HTTP ${appsScriptResponse.status} at ${finalTarget}.`)
+    response.status(502).json({
+      error: `Google Apps Script returned HTTP ${appsScriptResponse.status} at ${finalTarget}. Confirm that the deployment exists, is set to execute as you, and allows access to anyone.`,
+    })
+    return
+  }
+
+  const resultText = (await appsScriptResponse.text()).trim()
+  let result
+  try {
+    result = JSON.parse(resultText)
+  } catch {
+    if (!['success', 'saved', 'ok'].includes(resultText.toLowerCase())) {
+      response.status(502).json({
+        error: 'Google Sheets did not confirm the row was saved. Make the Apps Script doPost handler return JSON { "success": true } after writing the row.',
+      })
+      return
+    }
+  }
+
+  if (result !== undefined && result?.success !== true) {
+    response.status(502).json({
+      error: typeof result?.error === 'string'
+        ? `Google Sheets could not save the registration: ${result.error}`
+        : 'Google Sheets did not confirm the row was saved. Make the Apps Script doPost handler return JSON { "success": true } after writing the row.',
+    })
+    return
+  }
+
+  response.json({ verified: true, saved: true, paymentId })
+})
+
 app.use('/api', (_request, response) => {
   response.status(404).json({ error: 'API endpoint not found.' })
 })

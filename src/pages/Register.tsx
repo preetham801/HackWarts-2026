@@ -16,6 +16,11 @@ type RegistrationPayload = {
   house: string
 }
 
+type PendingRegistration = {
+  payload: RegistrationPayload
+  payment: RazorpayResponse
+}
+
 type RazorpayResponse = {
   razorpay_payment_id: string
   razorpay_order_id: string
@@ -88,11 +93,39 @@ function readFormValue(formData: FormData, name: string) {
   return formData.get(name)?.toString().trim() ?? ''
 }
 
+async function submitRegistration(payload: RegistrationPayload, payment: RazorpayResponse) {
+  const submissionResponse = await fetch('/api/submit-registration', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ...payload, ...payment }),
+  })
+  const submissionData = await submissionResponse.json()
+  if (!submissionResponse.ok || submissionData.verified !== true || submissionData.saved !== true) {
+    throw new Error(submissionData.error ?? 'Payment verification or Google Sheets submission failed.')
+  }
+}
+
 function Register() {
   const [isLoading, setIsLoading] = useState(false)
   const [isRegistered, setIsRegistered] = useState(false)
   const [paymentId, setPaymentId] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
+  const [pendingRegistration, setPendingRegistration] = useState<PendingRegistration | null>(null)
+
+  const retrySheetSubmission = async ({ payload, payment }: PendingRegistration) => {
+    setIsLoading(true)
+    setErrorMessage('')
+    try {
+      await submitRegistration(payload, payment)
+      setIsRegistered(true)
+    } catch (error) {
+      setErrorMessage(error instanceof Error
+        ? `${error.message} Your payment ID is ${payment.razorpay_payment_id}; contact the event organizers if this continues.`
+        : `Google Sheets submission failed. Your payment ID is ${payment.razorpay_payment_id}; contact the event organizers if this continues.`)
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -159,35 +192,10 @@ function Register() {
           contact: payload.phone,
         },
         handler: (response) => {
-          void (async () => {
-            setPaymentId(response.razorpay_payment_id)
-            try {
-              const verificationResponse = await fetch('/api/verify-payment', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(response),
-              })
-              const verificationData = await verificationResponse.json()
-              if (!verificationResponse.ok || verificationData.verified !== true) {
-                throw new Error(verificationData.error ?? 'Payment verification failed.')
-              }
-
-              await fetch(appsScriptUrl, {
-                method: 'POST',
-                mode: 'no-cors',
-                headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
-                body: JSON.stringify({ ...payload, paymentId: response.razorpay_payment_id }),
-              })
-              setErrorMessage('')
-              setIsRegistered(true)
-            } catch (error) {
-              setErrorMessage(error instanceof Error
-                ? `${error.message} Your payment ID is ${response.razorpay_payment_id}; contact the event organizers before retrying payment.`
-                : `Payment could not be verified or submitted. Your payment ID is ${response.razorpay_payment_id}; contact the event organizers before retrying payment.`)
-            } finally {
-              setIsLoading(false)
-            }
-          })()
+          const pending = { payload, payment: response }
+          setPaymentId(response.razorpay_payment_id)
+          setPendingRegistration(pending)
+          void retrySheetSubmission(pending)
         },
         modal: {
           ondismiss: () => setIsLoading(false),
@@ -220,9 +228,9 @@ function Register() {
               <section className="registration-panel registration-success" aria-labelledby="registration-success-title" role="status">
                 <p className="eyebrow">Registration</p>
                 <h2 id="registration-success-title">Coven Registered</h2>
-                <p>Your payment signature was verified and your registration submission was sent.</p>
+                <p>Your payment signature was verified and your registration was saved to the team sheet.</p>
                 <p className="registration-success__payment">Payment ID: <strong>{paymentId}</strong></p>
-                <p className="registration-success__notice">Keep your payment ID for reference. The registration-sheet endpoint does not provide a browser-verifiable save confirmation.</p>
+                <p className="registration-success__notice">Keep your payment ID for reference.</p>
               </section>
             ) : (
               <div className="registration-panel">
@@ -255,9 +263,19 @@ function Register() {
                     </div>
                     <label className="confirmation-field"><input type="checkbox" name="confirmation" required /> I confirm these team details are accurate.</label>
                     {errorMessage && <p className="registration-error" role="alert">{errorMessage}{paymentId && <> Payment ID: <strong>{paymentId}</strong></>}</p>}
-                    <button type="submit" className="button button--gold" disabled={isLoading}>
-                      {isLoading ? 'Processing...' : 'Register your coven — ₹499'}
+                    <button type="submit" className="button button--gold" disabled={isLoading || Boolean(pendingRegistration)}>
+                      {isLoading ? 'Processing...' : pendingRegistration ? 'Payment received' : 'Register your coven — ₹499'}
                     </button>
+                    {pendingRegistration && !isRegistered && (
+                      <button
+                        type="button"
+                        className="button button--gold"
+                        disabled={isLoading}
+                        onClick={() => void retrySheetSubmission(pendingRegistration)}
+                      >
+                        {isLoading ? 'Retrying sheet save...' : 'Retry saving registration (no new payment)'}
+                      </button>
+                    )}
                     {isLoading && <p className="registration-loading" role="status">Processing your registration. Please keep this page open.</p>}
                   </fieldset>
                 </form>
