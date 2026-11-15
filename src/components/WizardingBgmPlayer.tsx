@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
-import { Music2, VolumeX, X } from 'lucide-react'
+import { Music2, VolumeX } from 'lucide-react'
 
-const BGM_URL = '/audio/hogwarts-bgm.mp3'
+const BGM_URL = '/audio/hogwarts-bgm.aac'
 const PLAYING_GAIN = 0.5
 const UNLOCK_EVENTS = ['pointerdown', 'mousedown', 'mouseup', 'click', 'touchstart', 'touchend', 'keydown', 'wheel', 'scroll'] as const
 
@@ -12,7 +12,8 @@ let loopStart = 0
 let loopEnd = 0
 let bufferSource: AudioBufferSourceNode | null = null
 let fallbackAudio: HTMLAudioElement | null = null
-let fallbackFailed = false
+let usingHtmlFallback = false
+let fallbackStarting = false
 let muted = false
 const playerSubscribers = new Set<() => void>()
 
@@ -22,22 +23,36 @@ function notifyPlayerSubscribers() {
 
 function prepareAudioEngine() {
   if (typeof window === 'undefined') return
-
-  const Context = window.AudioContext
-  if (Context) {
-    try {
-      audioContext = new Context()
-      masterGain = audioContext.createGain()
-      masterGain.gain.value = PLAYING_GAIN
-      masterGain.connect(audioContext.destination)
-    } catch {
-      audioContext = null
-      masterGain = null
-    }
+  try {
+    const Context = window.AudioContext
+    if (!Context) return
+    audioContext = new Context()
+    masterGain = audioContext.createGain()
+    masterGain.gain.value = PLAYING_GAIN
+    masterGain.connect(audioContext.destination)
+  } catch {
+    audioContext = null
+    masterGain = null
   }
 }
 
+function createFallbackAudio() {
+  if (fallbackAudio) return fallbackAudio
+  if (typeof window === 'undefined') return null
+  fallbackAudio = new Audio(BGM_URL)
+  fallbackAudio.loop = true
+  fallbackAudio.preload = 'auto'
+  fallbackAudio.volume = muted ? 0 : PLAYING_GAIN
+  fallbackAudio.addEventListener('play', notifyPlayerSubscribers)
+  fallbackAudio.addEventListener('pause', notifyPlayerSubscribers)
+  fallbackAudio.addEventListener('ended', notifyPlayerSubscribers)
+  fallbackAudio.load()
+  return fallbackAudio
+}
+
 prepareAudioEngine()
+// Start the native media preload in parallel with Web Audio fetching/decoding.
+createFallbackAudio()
 
 function findLoopBounds(buffer: AudioBuffer) {
   let first = buffer.length
@@ -64,7 +79,7 @@ function isPlaybackActive() {
 }
 
 function startBufferLoop() {
-  if (!audioContext || !masterGain || !decodedBuffer || bufferSource || audioContext.state !== 'running') return false
+  if (usingHtmlFallback || fallbackStarting || !audioContext || !masterGain || !decodedBuffer || bufferSource || audioContext.state !== 'running') return false
   const source = audioContext.createBufferSource()
   source.buffer = decodedBuffer
   source.loop = true
@@ -81,24 +96,29 @@ function startBufferLoop() {
   return true
 }
 
-function createFallbackAudio() {
-  if (fallbackAudio || fallbackFailed) return fallbackAudio
-  fallbackAudio = new Audio(BGM_URL)
-  fallbackAudio.loop = true
-  fallbackAudio.preload = 'auto'
-  fallbackAudio.volume = muted ? 0 : PLAYING_GAIN
-  fallbackAudio.addEventListener('play', notifyPlayerSubscribers)
-  fallbackAudio.addEventListener('pause', notifyPlayerSubscribers)
-  fallbackAudio.addEventListener('ended', notifyPlayerSubscribers)
-  fallbackAudio.addEventListener('error', () => {
-    fallbackFailed = true
+async function startHtmlFallback() {
+  const audio = createFallbackAudio()
+  if (!audio || muted) return false
+  if (!audio.paused) {
+    usingHtmlFallback = true
+    return true
+  }
+  if (fallbackStarting) return false
+  fallbackStarting = true
+  try {
+    await audio.play()
+    fallbackStarting = false
+    usingHtmlFallback = !audio.paused
     notifyPlayerSubscribers()
-  }, { once: true })
-  fallbackAudio.load()
-  return fallbackAudio
+    return !audio.paused
+  } catch {
+    fallbackStarting = false
+    if (decodedBuffer && audioContext?.state === 'running') startBufferLoop()
+    return false
+  }
 }
 
-// This fetch begins at module evaluation, before the React component mounts.
+// This fetch and decode begin at module evaluation, before React mounts.
 const decodedAudioPromise: Promise<boolean> = (async () => {
   const context = audioContext as AudioContext | null
   if (!context) return false
@@ -106,7 +126,7 @@ const decodedAudioPromise: Promise<boolean> = (async () => {
     const response = await fetch(BGM_URL)
     if (!response.ok) throw new Error(`BGM request failed: ${response.status}`)
     const encodedAudio = await response.arrayBuffer()
-    const buffer = await context.decodeAudioData(encodedAudio)
+    const buffer = await context.decodeAudioData(encodedAudio.slice(0))
     decodedBuffer = buffer
     const bounds = findLoopBounds(buffer)
     loopStart = bounds.start
@@ -115,7 +135,7 @@ const decodedAudioPromise: Promise<boolean> = (async () => {
     notifyPlayerSubscribers()
     return true
   } catch {
-    createFallbackAudio()
+    usingHtmlFallback = true
     notifyPlayerSubscribers()
     return false
   }
@@ -123,29 +143,27 @@ const decodedAudioPromise: Promise<boolean> = (async () => {
 
 async function resumeAndStart() {
   if (muted) return false
+  // The preloaded native player can begin synchronously while decoding is pending.
+  const fallbackAttempt = decodedBuffer ? null : startHtmlFallback()
   if (audioContext) {
     try {
       if (audioContext.state !== 'running') await audioContext.resume()
     } catch {
-      return false
+      return fallbackAttempt ? await fallbackAttempt : startHtmlFallback()
     }
-    if (audioContext.state !== 'running') return false
+    if (audioContext.state !== 'running') return fallbackAttempt ? await fallbackAttempt : startHtmlFallback()
 
-    const decoded = await decodedAudioPromise
+    if (decodedBuffer && !fallbackStarting && !usingHtmlFallback) return startBufferLoop() || Boolean(bufferSource)
+    if (fallbackAttempt) {
+      const fallbackStarted = await fallbackAttempt
+      if (fallbackStarted) return true
+      if (decodedBuffer && startBufferLoop()) return true
+    }
+    const decoded = decodedBuffer ? true : await decodedAudioPromise
     if (muted) return false
-    if (decoded && startBufferLoop()) return true
-    if (decoded && bufferSource) return true
+    if (decoded && !usingHtmlFallback) return startBufferLoop() || Boolean(bufferSource)
   }
-
-  const audio = createFallbackAudio()
-  if (!audio || muted) return false
-  try {
-    await audio.play()
-    notifyPlayerSubscribers()
-    return !audio.paused
-  } catch {
-    return false
-  }
+  return startHtmlFallback()
 }
 
 function setEngineMuted(nextMuted: boolean) {
@@ -163,7 +181,6 @@ function setEngineMuted(nextMuted: boolean) {
 export function WizardingBgmPlayer() {
   const [isPlaying, setIsPlaying] = useState(false)
   const [isMuted, setIsMuted] = useState(false)
-  const [showEntryPrompt, setShowEntryPrompt] = useState(false)
   const unlockCleanupRef = useRef<(() => void) | null>(null)
   const lastHandledEventRef = useRef<Event | null>(null)
   const gestureAttemptPendingRef = useRef(false)
@@ -175,8 +192,6 @@ export function WizardingBgmPlayer() {
       if (!mountedRef.current) return
       setIsPlaying(isPlaybackActive() && !muted)
       setIsMuted(muted)
-      const contextReady = audioContext?.state === 'running'
-      setShowEntryPrompt(!contextReady && !isPlaybackActive())
     }
 
     const removeUnlockListeners = () => {
@@ -193,8 +208,8 @@ export function WizardingBgmPlayer() {
       if (event.target instanceof Element && event.target.closest('.wizarding-bgm-toggle')) return
       if (muted || gestureAttemptPendingRef.current) return
 
-      // resume() is invoked synchronously during the trusted gesture; listeners
-      // remain installed until the context is running and the loop has started.
+      // resume() is called before yielding to any promise so the trusted event
+      // can unlock Web Audio. A preloaded native player is ready if decoding lags.
       const resumeRequest = audioContext?.state !== 'running' ? audioContext?.resume() : undefined
       gestureAttemptPendingRef.current = true
       try {
@@ -202,7 +217,7 @@ export function WizardingBgmPlayer() {
         const started = await resumeAndStart()
         if (started && isPlaybackActive()) removeUnlockListeners()
       } catch {
-        // A later valid gesture can retry if browser policy rejected this attempt.
+        // Keep listeners installed so another natural gesture can retry.
       } finally {
         gestureAttemptPendingRef.current = false
         syncState()
@@ -223,20 +238,18 @@ export function WizardingBgmPlayer() {
       if (audioContext?.state === 'running' && !muted) {
         void decodedAudioPromise.then((decoded) => {
           if (decoded) startBufferLoop()
-          else void resumeAndStart()
+          else void startHtmlFallback()
           if (isPlaybackActive()) removeUnlockListeners()
           syncState()
         })
       }
     }
     audioContext?.addEventListener('statechange', onContextStateChange)
-    fallbackAudio?.addEventListener('canplay', syncState)
-    fallbackAudio?.addEventListener('loadeddata', syncState)
+    fallbackAudio?.addEventListener('play', syncState)
+    fallbackAudio?.addEventListener('pause', syncState)
     playerSubscribers.add(syncState)
     addUnlockListeners()
     syncState()
-
-    // Try on entry immediately. Browsers may reject this until a valid gesture.
     void resumeAndStart().then((started) => {
       if (started && isPlaybackActive()) removeUnlockListeners()
       syncState()
@@ -247,8 +260,8 @@ export function WizardingBgmPlayer() {
       removeUnlockListeners()
       playerSubscribers.delete(syncState)
       audioContext?.removeEventListener('statechange', onContextStateChange)
-      fallbackAudio?.removeEventListener('canplay', syncState)
-      fallbackAudio?.removeEventListener('loadeddata', syncState)
+      fallbackAudio?.removeEventListener('play', syncState)
+      fallbackAudio?.removeEventListener('pause', syncState)
     }
   }, [])
 
@@ -266,29 +279,17 @@ export function WizardingBgmPlayer() {
     }
   }
 
-  const dismissPrompt = () => setShowEntryPrompt(false)
-
   return (
-    <>
-      {showEntryPrompt && (
-        <aside className="wizarding-bgm-entry-prompt" role="status" aria-live="polite">
-          <span>Tap or scroll anywhere to awaken the Wizarding Score</span>
-          <button type="button" aria-label="Dismiss music prompt" onClick={dismissPrompt}>
-            <X aria-hidden="true" size={16} />
-          </button>
-        </aside>
-      )}
-      <button
-        className={`wizarding-bgm-toggle${isPlaying ? ' is-playing' : ''}`}
-        type="button"
-        aria-label={isMuted ? 'Unmute background music' : 'Mute background music'}
-        aria-pressed={!isMuted}
-        onClick={toggleMusic}
-      >
-        {isPlaying ? <Music2 aria-hidden="true" size={18} strokeWidth={1.8} /> : <VolumeX aria-hidden="true" size={18} strokeWidth={1.8} />}
-        <span className="wizarding-bgm-toggle__bars" aria-hidden="true"><i /><i /><i /></span>
-        <span className="visually-hidden">{isMuted ? 'BGM OFF' : 'BGM ON'}</span>
-      </button>
-    </>
+    <button
+      className={`wizarding-bgm-toggle${isPlaying ? ' is-playing' : ''}`}
+      type="button"
+      aria-label={isMuted ? 'Unmute background music' : 'Mute background music'}
+      aria-pressed={!isMuted}
+      onClick={toggleMusic}
+    >
+      {isPlaying ? <Music2 aria-hidden="true" size={18} strokeWidth={1.8} /> : <VolumeX aria-hidden="true" size={18} strokeWidth={1.8} />}
+      <span className="wizarding-bgm-toggle__bars" aria-hidden="true"><i /><i /><i /></span>
+      <span className="visually-hidden">{isMuted ? 'BGM OFF' : 'BGM ON'}</span>
+    </button>
   )
 }
