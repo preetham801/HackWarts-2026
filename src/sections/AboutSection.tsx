@@ -169,6 +169,53 @@ export function AboutSection() {
       .to(dust, { autoAlpha: .7, scale: 1, y: -8, duration: .56, stagger: .1, yoyo: true, repeat: 1, ease: 'sine.inOut' }, letterStart + .72)
   }
 
+  const sealLetter = () => {
+    if (!isOpened || isOpening) return
+    const trigger = triggerRef.current
+    const flap = flapRef.current
+    const seal = sealRef.current
+    const crack = crackRef.current
+    const letter = letterRef.current
+    if (!trigger || !flap || !seal || !crack || !letter) return
+    const revealParts = Array.from(letter.querySelectorAll<HTMLElement>('.invitation-reveal'))
+
+    interactionStartedRef.current = true
+    setIsOpening(true)
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    if (reducedMotion) {
+      gsap.set(letter, { autoAlpha: 0, y: 0, scaleX: 1, scaleY: 1, clearProps: 'transform' })
+      gsap.set(flap, { rotationX: 0, transformOrigin: '50% 0%' })
+      gsap.set(seal, { autoAlpha: 1, scale: 1, rotation: 0, clearProps: 'transform' })
+      gsap.set(crack, { autoAlpha: 0, scaleX: .1, clearProps: 'transform' })
+      gsap.set(trigger, { autoAlpha: 1, clearProps: 'transform' })
+      gsap.set(revealParts, { autoAlpha: 0, y: 12 })
+      letter.scrollTop = 0
+      setIsOpened(false)
+      setIsOpening(false)
+      interactionStartedRef.current = false
+      requestAnimationFrame(() => triggerRef.current?.focus())
+      return
+    }
+
+    const timeline = gsap.timeline({
+      onComplete: () => {
+        timelineRef.current = null
+        setIsOpened(false)
+        setIsOpening(false)
+        gsap.set(crack, { autoAlpha: 0, scaleX: .1, clearProps: 'transform' })
+        gsap.set(revealParts, { autoAlpha: 0, y: 12 })
+        letter.scrollTop = 0
+        interactionStartedRef.current = false
+        requestAnimationFrame(() => triggerRef.current?.focus())
+      },
+    })
+    timelineRef.current = timeline
+    timeline.to(letter, { autoAlpha: 0, y: 42, scaleY: .72, duration: .42, ease: 'power2.in' })
+      .to(flap, { rotationX: 0, duration: .4, ease: 'power2.inOut' }, '<.06')
+      .to(seal, { autoAlpha: 1, scale: 1, rotation: 0, duration: .3, ease: 'back.out(1.4)' }, '<.14')
+      .to(trigger, { autoAlpha: 1, duration: .22, ease: 'power1.out' }, '<.08')
+  }
+
   const isInteractive = isOpening || isOpened
 
   return (
@@ -185,10 +232,10 @@ export function AboutSection() {
             type="button"
             className="invitation-envelope-trigger"
             aria-label={isOpening ? 'Opening your HackWarts acceptance letter' : 'Open your HackWarts acceptance letter'}
+            aria-describedby="invitation-open-cue"
             aria-expanded={isInteractive}
             aria-controls="about-letter"
             disabled={isInteractive}
-            hidden={isOpened}
             onClick={openLetter}
           >
             <img className="invitation-envelope invitation-envelope--base" src={invitationEnvelope} alt="" draggable="false" />
@@ -207,7 +254,7 @@ export function AboutSection() {
             <span className="envelope-spark envelope-spark--four" aria-hidden="true" />
             <span className="envelope-spark envelope-spark--five" aria-hidden="true" />
             <span className="envelope-spark envelope-spark--six" aria-hidden="true" />
-            <span className="invitation-instruction">YOUR LETTER AWAITS — CLICK TO OPEN</span>
+            <span id="invitation-open-cue" className="invitation-instruction">Click Wax Seal to Break &amp; Open Letter</span>
           </button>
 
         <div className="invitation-flock" aria-hidden="true">
@@ -238,6 +285,11 @@ export function AboutSection() {
           >
             <img className="invitation-letter__paper" src={acceptanceParchment} alt="" draggable="false" />
             <div className="invitation-letter__content">
+              {isOpened && (
+                <button type="button" className="invitation-close-button" onClick={sealLetter}>
+                  Seal Envelope
+                </button>
+              )}
               <h2 ref={titleRef} id="about-title" className="invitation-title invitation-reveal" tabIndex={-1}>YOUR LETTER HAS ARRIVED</h2>
               <div className="invitation-copy">
                 <p className="invitation-greeting invitation-reveal">Dear Future Innovator,</p>
