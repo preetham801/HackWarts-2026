@@ -1,5 +1,17 @@
 # React + TypeScript + Vite
 
+## Local Razorpay checkout
+
+The registration page uses a local Express API to create Razorpay orders and verify payment signatures. The Razorpay key secret is read only by the backend and must never use a `VITE_` prefix.
+
+1. Copy `.env.example` to `.env`.
+2. Set `RAZORPAY_KEY_ID` and `RAZORPAY_KEY_SECRET` using your current Razorpay test credentials. Rotate any secret previously shared or exposed.
+3. Keep `VITE_APPS_SCRIPT_URL` set to the registration Google Apps Script URL.
+4. Run `npm run dev`. Vite serves the frontend and proxies `/api` requests to the local Express server.
+5. Test a registration using Razorpay test mode.
+
+For deployment, run `npm run build` and `npm start` on a Node host that supports Express. Configure `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `VITE_APPS_SCRIPT_URL`, and `PORT` as host environment variables. Do not commit `.env`.
+
 This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
 
 Currently, two official plugins are available:
