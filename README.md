@@ -14,13 +14,15 @@ After payment, the backend sends the registration to the Google Apps Script depl
 4. Copy the deployment's `/exec` URL (not the Google Sheets URL) into both `APPS_SCRIPT_URL` and `VITE_APPS_SCRIPT_URL` in the local `.env`, then restart `npm run dev`. Configure `APPS_SCRIPT_URL` on the production Node host as well.
 5. Confirm the Apps Script deployment is the latest version whenever you change its code.
 
+For Vercel, the API is exposed through [`api/[...path].js`](./api/[...path].js). Add `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, and `APPS_SCRIPT_URL` under the Vercel project's environment variables, then redeploy. The secret must not use a `VITE_` prefix.
+
 1. Copy `.env.example` to `.env`.
 2. Set `RAZORPAY_KEY_ID` and `RAZORPAY_KEY_SECRET` using your current Razorpay test credentials. Rotate any secret previously shared or exposed.
 3. Keep `VITE_APPS_SCRIPT_URL` set to the registration Google Apps Script URL.
 4. Run `npm run dev`. Vite serves the frontend and proxies `/api` requests to the local Express server.
 5. Test a registration using Razorpay test mode.
 
-For deployment, run `npm run build` and `npm start` on a Node host that supports Express. Configure `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `APPS_SCRIPT_URL`, and `PORT` as host environment variables. `VITE_APPS_SCRIPT_URL` remains supported as a local compatibility fallback. Do not commit `.env`.
+For deployment to a Node host, run `npm run build` and `npm start` on a host that supports Express. Configure `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `APPS_SCRIPT_URL`, and `PORT` as host environment variables. `VITE_APPS_SCRIPT_URL` remains supported as a local compatibility fallback. Do not commit `.env`.
 
 This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
 

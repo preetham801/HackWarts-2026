@@ -134,12 +134,6 @@ function Register() {
     const form = event.currentTarget
     if (!form.reportValidity()) return
 
-    const appsScriptUrl = import.meta.env.VITE_APPS_SCRIPT_URL
-    if (!appsScriptUrl) {
-      setErrorMessage('Registration submission is not configured. Please contact the event organizers.')
-      return
-    }
-
     const formData = new FormData(form)
     const payload: RegistrationPayload = {
       teamName: readFormValue(formData, 'teamName'),
