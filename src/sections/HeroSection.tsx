@@ -2,12 +2,14 @@ import { ArrowDown, ArrowUpRight } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import castleBackground from '../assets/hackwarts-magical-hero.png'
 import logo from '../assets/branding/hackwarts-2026-logo-transparent.png'
+import { CollaborationLogos } from '../components/CollaborationLogos'
 
 export function HeroSection() {
   return (
     <section id="home" aria-labelledby="hero-title" className="hero section-anchor">
       <img className="hero-campus" src={castleBackground} alt="" aria-hidden="true" fetchPriority="high" />
       <div className="hero-overlay" aria-hidden="true" />
+      <CollaborationLogos variant="hero" />
       <div className="hero-content">
         <p className="eyebrow hero-kicker">A 24-hour school of digital magic</p>
         <img className="hero-logo" src={logo} alt="HackWarts 2026" />

@@ -5,7 +5,7 @@ import { getTimelineRouteProgress, timelineStationProgress } from '../data/timel
 
 gsap.registerPlugin(ScrollTrigger)
 
-const journeySnapStops = [0, 1 / 6, 2 / 6, 3 / 6, 4 / 6, 5 / 6, 1]
+const finalStopIndex = timelineStationProgress.length - 1
 
 export function useExpressJourney(pinnedMode: boolean) {
   const stageRef = useRef<HTMLElementTagNameMap['section']>(null)
@@ -54,28 +54,22 @@ export function useExpressJourney(pinnedMode: boolean) {
         start: 'top top',
         id: 'hackwarts-express-journey',
         end: () => `+=${window.innerHeight * 3}`,
-        scrub: 0.8,
-        snap: {
-          snapTo: (value) => {
-            if (value >= 0.98) return 1
-            if (value <= 0.02) return 0
-            return journeySnapStops.reduce((nearest, stop) => Math.abs(stop - value) < Math.abs(nearest - value) ? stop : nearest, 0)
-          },
-          duration: { min: 0.45, max: 0.9 },
-          delay: 0.08,
-          ease: 'power2.inOut',
-        },
+        scrub: true,
         invalidateOnRefresh: true,
         onEnter: () => { currentStopRef.current = 0 },
         onEnterBack: () => {
-          currentStopRef.current = journeySnapStops.length - 1
-          setActiveStop(journeySnapStops.length - 1)
+          currentStopRef.current = finalStopIndex
+          progress.value = 1
+          progressRef.current = getTimelineRouteProgress(1)
+          setActiveStop(finalStopIndex)
           setStationArrival(true)
         },
         onLeave: () => {
-          currentStopRef.current = journeySnapStops.length - 1
+          currentStopRef.current = finalStopIndex
           progress.value = 1
           progressRef.current = getTimelineRouteProgress(1)
+          setActiveStop(finalStopIndex)
+          setStationArrival(true)
         },
         onLeaveBack: () => {
           currentStopRef.current = 0
@@ -84,6 +78,7 @@ export function useExpressJourney(pinnedMode: boolean) {
         },
       },
       onUpdate: () => {
+        progress.value = Math.min(1, Math.max(0, progress.value))
         const routeProgress = getTimelineRouteProgress(progress.value)
         progressRef.current = routeProgress
         let nearestStop = 0
@@ -105,9 +100,9 @@ export function useExpressJourney(pinnedMode: boolean) {
     const scrollTrigger = journey.scrollTrigger
     const stepToStop = (direction: -1 | 1, event?: Event) => {
       if (!scrollTrigger?.isActive) return false
-      const currentStop = Math.max(0, Math.min(journeySnapStops.length - 1, currentStopRef.current))
+      const currentStop = Math.max(0, Math.min(finalStopIndex, currentStopRef.current))
       const atStartAndLeaving = currentStop === 0 && scrollTrigger.progress <= 0.02 && direction < 0
-      const atEndAndLeaving = currentStop === journeySnapStops.length - 1 && scrollTrigger.progress >= 0.98 && direction > 0
+      const atEndAndLeaving = currentStop === finalStopIndex && scrollTrigger.progress >= 0.98 && direction > 0
       if (atStartAndLeaving || atEndAndLeaving) {
         scrollTweenRef.current?.kill()
         scrollTweenRef.current = null
@@ -124,17 +119,17 @@ export function useExpressJourney(pinnedMode: boolean) {
       const now = performance.now()
       if (now < cooldownUntilRef.current) return true
 
-      const destinationStop = Math.max(0, Math.min(journeySnapStops.length - 1, currentStop + direction))
+      const destinationStop = Math.max(0, Math.min(finalStopIndex, currentStop + direction))
       currentStopRef.current = destinationStop
-      const destinationProgress = journeySnapStops[destinationStop]
+      const destinationProgress = destinationStop / finalStopIndex
       const destinationScroll = scrollTrigger.start + destinationProgress * (scrollTrigger.end - scrollTrigger.start)
       const scrollPosition = { value: scrollTrigger.scroll() }
       scrollTweenRef.current?.kill()
-      cooldownUntilRef.current = now + 650
+      cooldownUntilRef.current = now + 220
       scrollTweenRef.current = gsap.to(scrollPosition, {
         value: destinationScroll,
-        duration: 0.52,
-        ease: 'power2.inOut',
+        duration: 0.18,
+        ease: 'power1.out',
         onUpdate: () => {
           if (!scrollTrigger.isActive) return
           scrollTrigger.scroll(scrollPosition.value)

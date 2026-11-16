@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { ArrowUpRight, Menu, X } from 'lucide-react'
-import { Link, useLocation } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import logo from '../assets/branding/hackwarts-2026-logo-transparent.png'
 
 const links = [
@@ -15,6 +15,7 @@ const links = [
 
 export function SiteHeader() {
   const { pathname } = useLocation()
+  const navigate = useNavigate()
   const isRegisterPage = pathname === '/register'
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [isScrolled, setIsScrolled] = useState(false)
@@ -72,17 +73,33 @@ export function SiteHeader() {
   }, [isMenuOpen])
 
   const closeMenu = () => setIsMenuOpen(false)
+  const navigateToSection = (event: React.MouseEvent<HTMLAnchorElement>, href: string) => {
+    closeMenu()
+    if (href === '#timeline') {
+      event.preventDefault()
+      navigate('/timeline')
+      return
+    }
+    if (pathname === '/') return
+    event.preventDefault()
+    navigate('/')
+    if (href === '#home') {
+      window.setTimeout(() => window.scrollTo({ top: 0, behavior: 'smooth' }), 60)
+      return
+    }
+    window.setTimeout(() => document.querySelector(href)?.scrollIntoView({ behavior: 'smooth' }), 80)
+  }
 
   return (
     <header className={`site-header${isScrolled ? ' site-header--scrolled' : ''}`}>
       <nav aria-label="Main navigation" className="header-inner">
-        <a href={isRegisterPage ? '/' : '#home'} className="brand-link" onClick={closeMenu} aria-label="HackWarts 2026 home" aria-current={currentSection === 'home' ? 'location' : undefined}>
+        <a href={pathname === '/' ? '#home' : '/'} className="brand-link" onClick={(event) => navigateToSection(event, '#home')} aria-label="HackWarts 2026 home" aria-current={currentSection === 'home' ? 'location' : undefined}>
           <img src={logo} alt="HackWarts 2026" className="brand-logo" />
         </a>
         <div className="desktop-nav">
           {links.map((link) => {
-            const isActive = currentSection === link.href.slice(1)
-            return <a className={`nav-link${isActive ? ' nav-link--active' : ''}`} key={link.href} href={isRegisterPage ? `/${link.href}` : link.href} aria-current={isActive ? 'location' : undefined}>{link.label}</a>
+            const isActive = link.href === '#timeline' ? pathname === '/timeline' : currentSection === link.href.slice(1)
+            return <a className={`nav-link${isActive ? ' nav-link--active' : ''}`} key={link.href} href={pathname === '/' ? link.href : `/${link.href}`} onClick={(event) => navigateToSection(event, link.href)} aria-current={isActive ? 'location' : undefined}>{link.label}</a>
           })}
         </div>
         <Link className={`header-register${currentSection === 'registration' ? ' header-register--active' : ''}`} to="/register" aria-current={currentSection === 'registration' ? 'location' : undefined}>Register Now <ArrowUpRight size={15} aria-hidden="true" /></Link>
@@ -97,8 +114,8 @@ export function SiteHeader() {
       </nav>
       <div id="mobile-navigation" className={`mobile-nav${isMenuOpen ? ' mobile-nav--open' : ''}`} hidden={!isMenuOpen}>
         {links.map((link) => {
-          const isActive = currentSection === link.href.slice(1)
-          return <a className={`mobile-nav__link${isActive ? ' mobile-nav__link--active' : ''}`} key={link.href} href={isRegisterPage ? `/${link.href}` : link.href} onClick={closeMenu} aria-current={isActive ? 'location' : undefined}>{link.label}</a>
+          const isActive = link.href === '#timeline' ? pathname === '/timeline' : currentSection === link.href.slice(1)
+          return <a className={`mobile-nav__link${isActive ? ' mobile-nav__link--active' : ''}`} key={link.href} href={pathname === '/' ? link.href : `/${link.href}`} onClick={(event) => navigateToSection(event, link.href)} aria-current={isActive ? 'location' : undefined}>{link.label}</a>
         })}
         <Link className={`mobile-register${currentSection === 'registration' ? ' mobile-register--active' : ''}`} to="/register" onClick={closeMenu} aria-current={currentSection === 'registration' ? 'location' : undefined}>Register Now <ArrowUpRight size={15} aria-hidden="true" /></Link>
       </div>

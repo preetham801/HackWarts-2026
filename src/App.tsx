@@ -13,6 +13,7 @@ import { RulesSection } from './sections/RulesSection'
 import { TimelineSection } from './sections/TimelineSection'
 import { useScrollReveal } from './hooks/useScrollReveal'
 import Register from './pages/Register'
+import { HouseDetailPage } from './components/HouseDetailPage'
 
 function HomePage() {
   return (
@@ -31,6 +32,10 @@ function HomePage() {
   )
 }
 
+function FullTimelinePage() {
+  return <main><TimelineSection fullPage /></main>
+}
+
 function App() {
   useScrollReveal()
   const { pathname } = useLocation()
@@ -45,6 +50,8 @@ function App() {
       <Routes>
         <Route path="/" element={<HomePage />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/houses/:houseSlug" element={<HouseDetailPage />} />
+        <Route path="/timeline" element={<FullTimelinePage />} />
       </Routes>
       <EnchantedWandCursor />
       <WizardingBgmPlayer />

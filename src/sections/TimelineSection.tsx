@@ -3,11 +3,13 @@ import { useExpressJourney } from '../hooks/useExpressJourney'
 import { SectionHeading } from '../components/SectionHeading'
 import { TimelineScene3D } from '../components/TimelineScene3D'
 import { timelineMilestones } from '../data/timeline'
+import { Link, useNavigate } from 'react-router-dom'
 
 const milestoneNumber = (index: number) => String(index + 1).padStart(2, '0')
 
-export function TimelineSection() {
-  const [viewMode, setViewMode] = useState<'3d' | '2d'>('3d')
+export function TimelineSection({ fullPage = false }: { fullPage?: boolean }) {
+  const [viewMode, setViewMode] = useState<'3d' | '2d'>(fullPage ? '2d' : '3d')
+  const navigate = useNavigate()
   const { stageRef, progressRef, activeStop, stationArrival } = useExpressJourney(viewMode === '3d')
   const activeMilestone = timelineMilestones[activeStop]
 
@@ -15,16 +17,17 @@ export function TimelineSection() {
     <section
       id="timeline"
       ref={stageRef}
-      className={`section section--night section-anchor timeline-section${viewMode === '2d' ? ' timeline-section--2d' : ''}`}
+      className={`section section--night section-anchor timeline-section${viewMode === '2d' ? ' timeline-section--2d' : ''}${fullPage ? ' timeline-section--full-page' : ''}`}
       aria-labelledby="timeline-title"
     >
       <div className="section-inner express-inner timeline-pin-layout">
+        {fullPage && <button className="timeline-full-page__back" type="button" onClick={() => navigate('/')}>← Go Back to Home Page</button>}
         <div className="timeline-heading-wrap">
           <SectionHeading id="timeline-title" eyebrow="Journey milestones" title="ALL ABOARD THE HACKWARTS EXPRESS." subtitle="A 24-hour journey through innovation." />
-          <div className="timeline-view-toggle" role="group" aria-label="Timeline view mode">
+          {!fullPage && <div className="timeline-view-toggle" role="group" aria-label="Timeline view mode">
             <button type="button" aria-pressed={viewMode === '3d'} onClick={() => setViewMode('3d')}>3D</button>
             <button type="button" aria-pressed={viewMode === '2d'} onClick={() => setViewMode('2d')}>2D</button>
-          </div>
+          </div>}
         </div>
 
         {viewMode === '3d' ? (
@@ -77,6 +80,7 @@ export function TimelineSection() {
             </ol>
           </div>
         )}
+        {!fullPage && <Link className="timeline-full-page__cta" to="/timeline">View Full-Page Timeline →</Link>}
       </div>
     </section>
   )

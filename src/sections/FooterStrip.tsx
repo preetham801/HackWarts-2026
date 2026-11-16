@@ -1,6 +1,7 @@
 import { ArrowUp, Sparkles } from 'lucide-react'
 import { MagicalOwl } from '../components/MagicalOwl'
 import logo from '../assets/branding/hackwarts-2026-logo-transparent.png'
+import { CollaborationLogos } from '../components/CollaborationLogos'
 
 const footerLinks = [
   ['Home', '#home'], ['About', '#about'], ['Houses', '#houses'], ['Timeline', '#timeline'],
@@ -17,6 +18,7 @@ export function FooterStrip() {
       </div>
       <nav className="footer-links" aria-label="Footer navigation">{footerLinks.map(([label, href]) => <a href={href} key={href}>{label}</a>)}</nav>
       <p className="social-placeholder">Social links will be shared when available.</p>
+      <div className="footer-collaboration"><CollaborationLogos variant="footer" /><p>In collaboration with RezonX, InUnity, and Sri Siddhartha School of Engineering</p></div>
       <MagicalOwl />
     </footer>
   )

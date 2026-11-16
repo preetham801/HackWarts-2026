@@ -604,6 +604,7 @@ function MistRibbon({ x, y, z, speed, opacity, reducedMotion }: { x: number; y: 
 
 function CameraFollow({ engineRef, curve, progressRef, reducedMotion }: { engineRef: RefObject<THREE.Group | null>; curve: THREE.CatmullRomCurve3; progressRef: MutableRefObject<number>; reducedMotion: boolean }) {
   const size = useThree((state) => state.size)
+  const camera = useThree((state) => state.camera)
   const desiredPosition = useRef(new THREE.Vector3())
   const currentLookTarget = useRef(new THREE.Vector3())
   const consistCenter = useRef(new THREE.Vector3())
@@ -612,19 +613,27 @@ function CameraFollow({ engineRef, curve, progressRef, reducedMotion }: { engine
   const lookTarget = useRef(new THREE.Vector3())
   const worldUp = useMemo(() => new THREE.Vector3(0, 1, 0), [])
   const hasCameraTarget = useRef(false)
+  const cameraFov = size.width < 768 ? 82 : 63
+
+  useEffect(() => {
+    if (camera instanceof THREE.PerspectiveCamera && camera.fov !== cameraFov) {
+      camera.fov = cameraFov
+      camera.updateProjectionMatrix()
+    }
+  }, [camera, cameraFov])
 
   useFrame((state, delta) => {
-    const { camera } = state
+    const activeCamera = state.camera
     const engine = engineRef.current
     if (!engine) return
-    const isMobile = size.width < 700
+    const isMobile = size.width < 768
     const tangent = routeTangent.current
     curve.getTangentAt(progressRef.current, tangent).setY(0).normalize()
     const center = consistCenter.current.copy(engine.position).addScaledVector(tangent, -expressTrainCarSpacingDistance * 1.5)
     const right = rightVector.current.copy(tangent).cross(worldUp).normalize()
-    const tangentOffset = isMobile ? 15.5 : 13.5
-    const sideOffset = isMobile ? 14 : 11.5
-    const verticalOffset = isMobile ? 11.5 : 9.5
+    const tangentOffset = isMobile ? 28 : 18
+    const sideOffset = isMobile ? 17 : 14
+    const verticalOffset = isMobile ? 15 : 11
     desiredPosition.current.set(
       center.x + right.x * sideOffset + tangent.x * tangentOffset,
       center.y + verticalOffset,
@@ -634,18 +643,18 @@ function CameraFollow({ engineRef, curve, progressRef, reducedMotion }: { engine
 
     if (!hasCameraTarget.current) {
       currentLookTarget.current.copy(lookTarget.current)
-      camera.position.copy(desiredPosition.current)
+      activeCamera.position.copy(desiredPosition.current)
       hasCameraTarget.current = true
     }
     if (reducedMotion) {
-      camera.position.copy(desiredPosition.current)
+      activeCamera.position.copy(desiredPosition.current)
       currentLookTarget.current.copy(lookTarget.current)
     } else {
-      const smoothing = 1 - Math.exp(-delta * 3.6)
-      camera.position.lerp(desiredPosition.current, smoothing)
+      const smoothing = 1 - Math.exp(-delta * 14)
+      activeCamera.position.lerp(desiredPosition.current, smoothing)
       currentLookTarget.current.lerp(lookTarget.current, smoothing)
     }
-    camera.lookAt(currentLookTarget.current)
+    activeCamera.lookAt(currentLookTarget.current)
   })
 
   return null
