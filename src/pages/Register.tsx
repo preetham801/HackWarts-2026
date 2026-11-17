@@ -149,7 +149,7 @@ function Register() {
               </section>
             ) : (
               <div className="registration-panel">
-                <p className="registration-note">Round 1 registration is free. Complete your team details and upload your project deck.</p>
+                <p className="registration-note">Registration is ₹499 per coven. Complete your team details and upload your project deck.</p>
                 <form className="registration-form" aria-label="Team registration form" onSubmit={handleSubmit}>
                   <fieldset className="registration-fields">
                     <legend className="visually-hidden">Team registration details</legend>

@@ -11,6 +11,7 @@ import { HousesSection } from './sections/HousesSection'
 import { RewardsSection } from './sections/RewardsSection'
 import { RulesSection } from './sections/RulesSection'
 import { TimelineSection } from './sections/TimelineSection'
+import { ResourcesSection } from './sections/ResourcesSection'
 import { useScrollReveal } from './hooks/useScrollReveal'
 import Register from './pages/Register'
 import { HouseDetailPage } from './components/HouseDetailPage'
@@ -26,6 +27,7 @@ function HomePage() {
         <RewardsSection />
         <RulesSection />
         <FaqSection />
+        <ResourcesSection />
       </main>
       <FooterStrip />
     </>

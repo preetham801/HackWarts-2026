@@ -11,10 +11,10 @@ type Rule = {
 const rules: Rule[] = [
   { id: 'team-size', term: 'Team size', detail: '2–4 members' },
   { id: 'team-composition', term: 'Team composition', detail: 'Minimum two women per team' },
-  { id: 'registration', term: 'Registration', detail: 'Round 1 registration is free. Submit your Project PPT with your team details.' },
+  { id: 'registration', term: 'Registration fee', detail: '₹499 per coven (team).' },
   { id: 'hackathon-duration', term: 'Hackathon duration', detail: '24 hours' },
-  { id: 'venue', term: 'Venue', detail: 'Sri Siddhartha School of Engineering' },
-  { id: 'event-date', term: 'Date', detail: 'To be announced' },
+  { id: 'venue', term: 'Venue', detail: 'Sri Siddhartha School of Engineering (SSSE), Tumkur' },
+  { id: 'event-date', term: 'Date', detail: 'November 24 & 25, 2026' },
 ]
 
 function RuleAccordionItem({ rule }: { rule: Rule }) {

@@ -17,6 +17,7 @@ export function FooterStrip() {
         <a className="back-to-top" href="#home" aria-label="Back to top"><ArrowUp size={16} aria-hidden="true" /></a>
       </div>
       <nav className="footer-links" aria-label="Footer navigation">{footerLinks.map(([label, href]) => <a href={href} key={href}>{label}</a>)}</nav>
+      <nav className="footer-resource-links" aria-label="Official downloads"><a href="/downloads/HackWarts-2026-Brochure.pdf" target="_blank" rel="noopener noreferrer">Event Brochure</a><a href="/downloads/HackWarts-2026-PPT-Template.pptx" download="HackWarts-2026-PPT-Template.pptx">PPT Template</a></nav>
       <p className="social-placeholder">Social links will be shared when available.</p>
       <div className="footer-collaboration"><CollaborationLogos variant="footer" /><p>In collaboration with RezonX, InUnity, and Sri Siddhartha School of Engineering</p></div>
       <MagicalOwl />

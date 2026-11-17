@@ -36,7 +36,7 @@ export function TimelineSection({ fullPage = false }: { fullPage?: boolean }) {
               <TimelineScene3D progressRef={progressRef} />
               <span className="railway-scene-caption" aria-hidden="true">THE MOUNTAIN LINE · HACKWARTS EXPRESS</span>
               <div className={`timeline-spectral-reveal${stationArrival ? ' timeline-spectral-reveal--visible' : ''}`} aria-hidden="true">
-                <p className="timeline-spectral-reveal__kicker">STOP {milestoneNumber(activeStop)} <span>·</span> {activeMilestone.time ?? 'To be announced'}</p>
+                <p className="timeline-spectral-reveal__kicker">STOP {milestoneNumber(activeStop)} <span>·</span> {activeMilestone.time ?? 'November 24 & 25, 2026'}</p>
                 <h3 key={activeMilestone.id}>{activeMilestone.title}</h3>
                 <p className="timeline-spectral-reveal__description">{activeMilestone.description}</p>
               </div>
@@ -54,7 +54,7 @@ export function TimelineSection({ fullPage = false }: { fullPage?: boolean }) {
                   <span>STOP {milestoneNumber(index)}</span>
                   <h3>{milestone.title}</h3>
                   <p>{milestone.description}</p>
-                  <p>{milestone.time ?? 'To be announced'}</p>
+                  <p>{milestone.time ?? 'November 24 & 25, 2026'}</p>
                 </li>
               ))}
             </ol>
@@ -72,7 +72,7 @@ export function TimelineSection({ fullPage = false }: { fullPage?: boolean }) {
                   <article className="timeline-2d-card">
                     <span className="timeline-2d-card__badge">STOP {milestoneNumber(index)}</span>
                     <h3>{milestone.title}</h3>
-                    <p className="timeline-2d-card__time">{milestone.time ?? 'To be announced'}</p>
+                    <p className="timeline-2d-card__time">{milestone.time ?? 'November 24 & 25, 2026'}</p>
                     <p>{milestone.description}</p>
                   </article>
                 </li>
@@ -85,3 +85,4 @@ export function TimelineSection({ fullPage = false }: { fullPage?: boolean }) {
     </section>
   )
 }
+
