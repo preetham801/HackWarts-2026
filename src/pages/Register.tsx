@@ -2,6 +2,13 @@ import { useState, type FormEvent } from 'react'
 import { SectionHeading } from '../components/SectionHeading'
 import { FooterStrip } from '../sections/FooterStrip'
 
+const MAX_PPT_SIZE = 3 * 1024 * 1024
+const PPT_MIME_TYPES: Record<string, string> = {
+  ppt: 'application/vnd.ms-powerpoint',
+  pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  pdf: 'application/pdf',
+}
+
 type RegistrationPayload = {
   teamName: string
   leaderName: string
@@ -14,70 +21,9 @@ type RegistrationPayload = {
   member3: string
   member4: string
   house: string
-}
-
-type PendingRegistration = {
-  payload: RegistrationPayload
-  payment: RazorpayResponse
-}
-
-type RazorpayResponse = {
-  razorpay_payment_id: string
-  razorpay_order_id: string
-  razorpay_signature: string
-}
-
-type RazorpayOptions = {
-  key: string
-  amount: number
-  currency: string
-  order_id: string
-  name: string
-  description: string
-  prefill: {
-    name: string
-    email: string
-    contact: string
-  }
-  handler: (response: RazorpayResponse) => void
-  modal: {
-    ondismiss: () => void
-  }
-}
-
-type RazorpayCheckout = {
-  open: () => void
-  on: (
-    event: 'payment.failed',
-    handler: (response: { error?: { code?: string; description?: string; reason?: string } }) => void,
-  ) => void
-}
-
-declare global {
-  interface Window {
-    Razorpay?: new (options: RazorpayOptions) => RazorpayCheckout
-  }
-}
-
-let razorpayScriptPromise: Promise<void> | undefined
-
-function loadRazorpayScript() {
-  if (window.Razorpay) return Promise.resolve()
-  if (razorpayScriptPromise) return razorpayScriptPromise
-
-  razorpayScriptPromise = new Promise<void>((resolve, reject) => {
-    const script = document.createElement('script')
-    script.src = 'https://checkout.razorpay.com/v1/checkout.js'
-    script.async = true
-    script.onload = () => resolve()
-    script.onerror = () => {
-      razorpayScriptPromise = undefined
-      reject(new Error('Razorpay Checkout could not be loaded. Check your connection and try again.'))
-    }
-    document.body.appendChild(script)
-  })
-
-  return razorpayScriptPromise
+  pptBase64: string
+  pptFileName: string
+  pptMimeType: string
 }
 
 const registrationFields = [
@@ -93,39 +39,31 @@ function readFormValue(formData: FormData, name: string) {
   return formData.get(name)?.toString().trim() ?? ''
 }
 
-async function submitRegistration(payload: RegistrationPayload, payment: RazorpayResponse) {
-  const submissionResponse = await fetch('/api/submit-registration', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ...payload, ...payment }),
+function readFileAsBase64(file: File) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => {
+      if (typeof reader.result !== 'string') {
+        reject(new Error('Could not read the selected Project PPT.'))
+        return
+      }
+      const base64 = reader.result.split(',')[1]
+      if (!base64) {
+        reject(new Error('Could not read the selected Project PPT.'))
+        return
+      }
+      resolve(base64)
+    }
+    reader.onerror = () => reject(new Error('Could not read the selected Project PPT. Please try again.'))
+    reader.onabort = () => reject(new Error('Reading the selected Project PPT was interrupted. Please try again.'))
+    reader.readAsDataURL(file)
   })
-  const submissionData = await submissionResponse.json()
-  if (!submissionResponse.ok || submissionData.verified !== true || submissionData.saved !== true) {
-    throw new Error(submissionData.error ?? 'Payment verification or Google Sheets submission failed.')
-  }
 }
 
 function Register() {
   const [isLoading, setIsLoading] = useState(false)
-  const [isRegistered, setIsRegistered] = useState(false)
-  const [paymentId, setPaymentId] = useState('')
+  const [registeredEmail, setRegisteredEmail] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
-  const [pendingRegistration, setPendingRegistration] = useState<PendingRegistration | null>(null)
-
-  const retrySheetSubmission = async ({ payload, payment }: PendingRegistration) => {
-    setIsLoading(true)
-    setErrorMessage('')
-    try {
-      await submitRegistration(payload, payment)
-      setIsRegistered(true)
-    } catch (error) {
-      setErrorMessage(error instanceof Error
-        ? `${error.message} Your payment ID is ${payment.razorpay_payment_id}; contact the event organizers if this continues.`
-        : `Google Sheets submission failed. Your payment ID is ${payment.razorpay_payment_id}; contact the event organizers if this continues.`)
-    } finally {
-      setIsLoading(false)
-    }
-  }
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -135,6 +73,20 @@ function Register() {
     if (!form.reportValidity()) return
 
     const formData = new FormData(form)
+    const pptFile = formData.get('projectPpt')
+    if (!(pptFile instanceof File) || pptFile.size === 0) {
+      setErrorMessage('Please choose your Project PPT or deck.')
+      return
+    }
+    if (pptFile.size > MAX_PPT_SIZE) {
+      setErrorMessage('The Project PPT must be 3 MB or smaller.')
+      return
+    }
+    if (!/\.(ppt|pptx|pdf)$/i.test(pptFile.name)) {
+      setErrorMessage('Upload a .ppt, .pptx, or .pdf file.')
+      return
+    }
+
     const payload: RegistrationPayload = {
       teamName: readFormValue(formData, 'teamName'),
       leaderName: readFormValue(formData, 'leaderName'),
@@ -147,67 +99,27 @@ function Register() {
       member3: readFormValue(formData, 'member3'),
       member4: readFormValue(formData, 'member4'),
       house: readFormValue(formData, 'house'),
+      pptBase64: '',
+      pptFileName: pptFile.name,
+      pptMimeType: PPT_MIME_TYPES[pptFile.name.split('.').pop()?.toLowerCase() ?? ''] ?? pptFile.type,
     }
 
     setIsLoading(true)
     try {
-      const [_, orderResponse] = await Promise.all([
-        loadRazorpayScript(),
-        fetch('/api/create-order', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ amount: 49900 }),
-        }),
-      ])
-      const orderData = await orderResponse.json()
-      if (!orderResponse.ok) {
-        throw new Error(orderData.error ?? 'Could not create a payment order. Please try again.')
-      }
-      if (
-        typeof orderData.key_id !== 'string' ||
-        typeof orderData.order_id !== 'string' ||
-        typeof orderData.amount !== 'number' ||
-        typeof orderData.currency !== 'string'
-      ) {
-        throw new Error('The server returned an invalid payment order.')
-      }
-      if (!window.Razorpay) throw new Error('Razorpay Checkout did not initialize. Please try again.')
-
-      const checkout = new window.Razorpay({
-        key: orderData.key_id,
-        amount: orderData.amount,
-        currency: orderData.currency,
-        order_id: orderData.order_id,
-        name: 'HackWarts 2026',
-        description: 'Team registration',
-        prefill: {
-          name: payload.leaderName,
-          email: payload.email,
-          contact: payload.phone,
-        },
-        handler: (response) => {
-          const pending = { payload, payment: response }
-          setPaymentId(response.razorpay_payment_id)
-          setPendingRegistration(pending)
-          void retrySheetSubmission(pending)
-        },
-        modal: {
-          ondismiss: () => setIsLoading(false),
-        },
+      payload.pptBase64 = await readFileAsBase64(pptFile)
+      const response = await fetch('/api/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
       })
-
-      checkout.on('payment.failed', (response) => {
-        const details = response.error
-        setErrorMessage([
-          details?.description ?? 'Payment failed. Please try again.',
-          details?.code && `Code: ${details.code}`,
-          details?.reason && `Reason: ${details.reason}`,
-        ].filter(Boolean).join(' — '))
-        setIsLoading(false)
-      })
-      checkout.open()
+      const result = await response.json()
+      if (!response.ok || result.success !== true) {
+        throw new Error(result.error ?? 'Could not save your registration. Please try again.')
+      }
+      setRegisteredEmail(payload.email)
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : 'Unable to start checkout. Please try again.')
+      setErrorMessage(error instanceof Error ? error.message : 'Unable to submit your registration. Please try again.')
+    } finally {
       setIsLoading(false)
     }
   }
@@ -218,18 +130,16 @@ function Register() {
         <section id="registration" className="section section--dark section-anchor registration-page" aria-labelledby="registration-title">
           <div className="section-inner section-inner--narrow">
             <SectionHeading id="registration-title" eyebrow="Registration" title="YOUR JOURNEY BEGINS HERE." subtitle="Gather your coven. Claim your place." />
-            {isRegistered ? (
+            {registeredEmail ? (
               <section className="registration-panel registration-success" aria-labelledby="registration-success-title" role="status">
                 <p className="eyebrow">Registration</p>
                 <h2 id="registration-success-title">Coven Registered</h2>
-                <p>Your payment signature was verified and your registration was saved to the team sheet.</p>
-                <p className="registration-success__payment">Payment ID: <strong>{paymentId}</strong></p>
-                <p className="registration-success__notice">Keep your payment ID for reference.</p>
+                <p>Your Round 1 registration and project PPT were saved.</p>
+                <p className="registration-success__notice">A confirmation email has been sent to the Team Leader&apos;s email address: <strong>{registeredEmail}</strong>.</p>
               </section>
             ) : (
               <div className="registration-panel">
-                <p className="registration-fee">₹499 <span>per team</span></p>
-                <p className="registration-note">Complete your team details to continue to secure checkout.</p>
+                <p className="registration-note">Round 1 registration is free. Complete your team details and upload your project deck.</p>
                 <form className="registration-form" aria-label="Team registration form" onSubmit={handleSubmit}>
                   <fieldset className="registration-fields">
                     <legend className="visually-hidden">Team registration details</legend>
@@ -241,7 +151,8 @@ function Register() {
                             type={type}
                             name={name}
                             required
-                            min={type === 'number' ? 1 : undefined}
+                            min={type === 'number' ? 2 : undefined}
+                            max={type === 'number' ? 4 : undefined}
                             pattern={name === 'phone' ? '[0-9]{10}' : undefined}
                             inputMode={name === 'phone' ? 'numeric' : undefined}
                             title={name === 'phone' ? 'Enter a 10-digit phone number.' : undefined}
@@ -255,22 +166,17 @@ function Register() {
                       ))}
                       <label>House preference (if applicable)<select name="house" defaultValue=""><option value="">Select a house</option><option>Gryffindor</option><option>Hufflepuff</option><option>Ravenclaw</option><option>Slytherin</option></select></label>
                     </div>
+                    <label className="registration-ppt-field">
+                      Project PPT / Deck
+                      <input type="file" name="projectPpt" accept=".ppt,.pptx,.pdf" required aria-describedby="project-ppt-help" />
+                      <span id="project-ppt-help">Accepted formats: .ppt, .pptx, or .pdf. Maximum file size: 3 MB.</span>
+                    </label>
                     <label className="confirmation-field"><input type="checkbox" name="confirmation" required /> I confirm these team details are accurate.</label>
-                    {errorMessage && <p className="registration-error" role="alert">{errorMessage}{paymentId && <> Payment ID: <strong>{paymentId}</strong></>}</p>}
-                    <button type="submit" className="button button--gold" disabled={isLoading || Boolean(pendingRegistration)}>
-                      {isLoading ? 'Processing...' : pendingRegistration ? 'Payment received' : 'Register your coven — ₹499'}
+                    {errorMessage && <p className="registration-error" role="alert">{errorMessage}</p>}
+                    <button type="submit" className="button button--gold" disabled={isLoading}>
+                      {isLoading ? 'Submitting...' : 'REGISTER YOUR COVEN'}
                     </button>
-                    {pendingRegistration && !isRegistered && (
-                      <button
-                        type="button"
-                        className="button button--gold"
-                        disabled={isLoading}
-                        onClick={() => void retrySheetSubmission(pendingRegistration)}
-                      >
-                        {isLoading ? 'Retrying sheet save...' : 'Retry saving registration (no new payment)'}
-                      </button>
-                    )}
-                    {isLoading && <p className="registration-loading" role="status">Processing your registration. Please keep this page open.</p>}
+                    {isLoading && <p className="registration-loading" role="status">Saving your registration and Project PPT. Please keep this page open.</p>}
                   </fieldset>
                 </form>
               </div>

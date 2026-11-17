@@ -1,100 +1,27 @@
 import 'dotenv/config'
 import express from 'express'
-import Razorpay from 'razorpay'
-import { randomUUID } from 'node:crypto'
 import { existsSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { verifyPaymentSignature } from './payment.js'
 
 const app = express()
-const registrationAmount = 49900
+const maxPptBytes = 3 * 1024 * 1024
 const webRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../dist')
+const allowedPptTypes = new Map([
+  ['.ppt', 'application/vnd.ms-powerpoint'],
+  ['.pptx', 'application/vnd.openxmlformats-officedocument.presentationml.presentation'],
+  ['.pdf', 'application/pdf'],
+])
 
-app.use(express.json({ limit: '16kb' }))
-
-function getRazorpayCredentials() {
-  const keyId = process.env.RAZORPAY_KEY_ID || process.env.VITE_RAZORPAY_KEY_ID
-  const keySecret = process.env.RAZORPAY_KEY_SECRET
-
-  if (!keyId || !keySecret) {
-    const error = new Error('Razorpay server credentials are not configured.')
-    error.statusCode = 503
-    throw error
-  }
-
-  return { keyId, keySecret }
+function hasExpectedFileSignature(buffer, extension) {
+  if (extension === '.pdf') return buffer.subarray(0, 5).toString() === '%PDF-'
+  if (extension === '.ppt') return buffer.subarray(0, 8).equals(Buffer.from('D0CF11E0A1B11AE1', 'hex'))
+  return buffer.subarray(0, 4).equals(Buffer.from('504B0304', 'hex'))
 }
 
-app.post('/api/create-order', async (request, response) => {
-  const { amount } = request.body ?? {}
-  if (!Number.isInteger(amount) || amount < 100) {
-    response.status(400).json({ error: 'Amount must be an integer of at least 100 paise.' })
-    return
-  }
-  if (amount !== registrationAmount) {
-    response.status(400).json({ error: 'The registration amount must be ₹499.' })
-    return
-  }
+app.use(express.json({ limit: '6mb' }))
 
-  try {
-    const { keyId, keySecret } = getRazorpayCredentials()
-    const razorpay = new Razorpay({ key_id: keyId, key_secret: keySecret })
-    const order = await razorpay.orders.create({
-      amount: registrationAmount,
-      currency: 'INR',
-      receipt: `hw_${randomUUID().replaceAll('-', '')}`,
-    })
-
-    response.status(201).json({
-      order_id: order.id,
-      amount: order.amount,
-      currency: order.currency,
-      key_id: keyId,
-    })
-  } catch (error) {
-    if (error?.statusCode === 401) {
-      response.status(401).json({ error: 'Razorpay rejected the server credentials.' })
-      return
-    }
-    if (error?.statusCode === 503) {
-      response.status(503).json({ error: error.message })
-      return
-    }
-    console.error('Razorpay order creation failed.')
-    response.status(500).json({ error: 'Could not create a Razorpay order. Please try again.' })
-  }
-})
-
-app.post('/api/verify-payment', (request, response) => {
-  const { razorpay_order_id: orderId, razorpay_payment_id: paymentId, razorpay_signature: signature } = request.body ?? {}
-  if (
-    typeof orderId !== 'string' || !orderId ||
-    typeof paymentId !== 'string' || !paymentId ||
-    typeof signature !== 'string' || !/^[a-f0-9]{64}$/i.test(signature)
-  ) {
-    response.status(400).json({ error: 'Order ID, payment ID, and a valid signature are required.' })
-    return
-  }
-
-  try {
-    const { keySecret } = getRazorpayCredentials()
-    if (!verifyPaymentSignature({ orderId, paymentId, signature, secret: keySecret })) {
-      response.status(400).json({ error: 'Payment signature verification failed.' })
-      return
-    }
-    response.json({ verified: true })
-  } catch (error) {
-    if (error?.statusCode === 503) {
-      response.status(503).json({ error: error.message })
-      return
-    }
-    console.error('Razorpay payment verification failed.')
-    response.status(500).json({ error: 'Could not verify payment. Please contact the event organizers.' })
-  }
-})
-
-app.post('/api/submit-registration', async (request, response) => {
+app.post('/api/register', async (request, response) => {
   const {
     teamName,
     leaderName,
@@ -102,46 +29,47 @@ app.post('/api/submit-registration', async (request, response) => {
     phone,
     college,
     teamSize,
-    member1 = '',
-    member2 = '',
-    member3 = '',
-    member4 = '',
-    house = '',
-    razorpay_order_id: orderId,
-    razorpay_payment_id: paymentId,
-    razorpay_signature: signature,
+    member1,
+    member2,
+    member3,
+    member4,
+    house,
+    pptBase64,
+    pptFileName,
+    pptMimeType,
   } = request.body ?? {}
 
+  const requiredTextFields = [teamName, leaderName, college]
+  const optionalTextFields = [member1, member2, member3, member4, house]
   if (
-    typeof teamName !== 'string' || !teamName.trim() ||
-    typeof leaderName !== 'string' || !leaderName.trim() ||
+    !requiredTextFields.every((value) => typeof value === 'string' && value.trim().length > 0) ||
     typeof email !== 'string' || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ||
     typeof phone !== 'string' || !/^\d{10}$/.test(phone) ||
-    typeof college !== 'string' || !college.trim() ||
-    !Number.isInteger(teamSize) || teamSize < 1 ||
-    ![member1, member2, member3, member4, house].every((value) => typeof value === 'string') ||
-    typeof orderId !== 'string' || !orderId ||
-    typeof paymentId !== 'string' || !paymentId ||
-    typeof signature !== 'string' || !/^[a-f0-9]{64}$/i.test(signature)
+    !Number.isInteger(teamSize) || teamSize < 2 || teamSize > 4 ||
+    !optionalTextFields.every((value) => typeof value === 'string') ||
+    !['', 'Gryffindor', 'Hufflepuff', 'Ravenclaw', 'Slytherin'].includes(house) ||
+    typeof pptFileName !== 'string' || !/^[^\\/:*?"<>|]+\.(ppt|pptx|pdf)$/i.test(pptFileName) ||
+    typeof pptBase64 !== 'string' || !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(pptBase64) ||
+    typeof pptMimeType !== 'string'
   ) {
-    response.status(400).json({ error: 'Registration details and valid Razorpay payment fields are required.' })
+    response.status(400).json({ error: 'Valid team details and a supported Project PPT file are required.' })
     return
   }
 
-  let keySecret
-  try {
-    ({ keySecret } = getRazorpayCredentials())
-  } catch (error) {
-    response.status(error.statusCode ?? 503).json({ error: error.message })
+  const pptBuffer = Buffer.from(pptBase64, 'base64')
+  const pptExtension = path.extname(pptFileName).toLowerCase()
+  if (
+    pptBuffer.length === 0 ||
+    pptBuffer.length > maxPptBytes ||
+    pptBuffer.toString('base64') !== pptBase64 ||
+    allowedPptTypes.get(pptExtension) !== pptMimeType ||
+    !hasExpectedFileSignature(pptBuffer, pptExtension)
+  ) {
+    response.status(400).json({ error: 'The Project PPT must be a valid .ppt, .pptx, or .pdf file no larger than 3 MB.' })
     return
   }
 
-  if (!verifyPaymentSignature({ orderId, paymentId, signature, secret: keySecret })) {
-    response.status(400).json({ error: 'Payment signature verification failed.' })
-    return
-  }
-
-  const appsScriptUrl = process.env.APPS_SCRIPT_URL || process.env.VITE_APPS_SCRIPT_URL
+  const appsScriptUrl = process.env.APPS_SCRIPT_URL
   if (!appsScriptUrl) {
     response.status(503).json({ error: 'Google Sheets submission is not configured on the server.' })
     return
@@ -174,12 +102,14 @@ app.post('/api/submit-registration', async (request, response) => {
         phone,
         college: college.trim(),
         teamSize,
-        member1,
-        member2,
-        member3,
-        member4,
+        member1: member1.trim(),
+        member2: member2.trim(),
+        member3: member3.trim(),
+        member4: member4.trim(),
         house,
-        paymentId,
+        pptBase64,
+        pptFileName,
+        pptMimeType,
       }),
       signal: AbortSignal.timeout(20000),
     })
@@ -187,8 +117,8 @@ app.post('/api/submit-registration', async (request, response) => {
     const timedOut = error.name === 'TimeoutError'
     response.status(timedOut ? 504 : 502).json({
       error: timedOut
-        ? 'Google Sheets did not respond in time. Keep your payment ID and contact the event organizers before retrying.'
-        : 'Could not reach Google Sheets. Keep your payment ID and contact the event organizers before retrying.',
+        ? 'Google Apps Script did not respond in time. Please contact the event organizers before retrying.'
+        : 'Could not reach Google Apps Script. Please try again or contact the event organizers.',
     })
     return
   }
@@ -208,24 +138,22 @@ app.post('/api/submit-registration', async (request, response) => {
   try {
     result = JSON.parse(resultText)
   } catch {
-    if (!['success', 'saved', 'ok'].includes(resultText.toLowerCase())) {
-      response.status(502).json({
-        error: 'Google Sheets did not confirm the row was saved. Make the Apps Script doPost handler return JSON { "success": true } after writing the row.',
-      })
-      return
-    }
-  }
-
-  if (result !== undefined && result?.success !== true) {
     response.status(502).json({
-      error: typeof result?.error === 'string'
-        ? `Google Sheets could not save the registration: ${result.error}`
-        : 'Google Sheets did not confirm the row was saved. Make the Apps Script doPost handler return JSON { "success": true } after writing the row.',
+      error: 'Google Apps Script did not confirm the registration. Make its doPost handler return JSON { "success": true } after saving the PPT and sending the confirmation email.',
     })
     return
   }
 
-  response.json({ verified: true, saved: true, paymentId })
+  if (result?.success !== true) {
+    response.status(502).json({
+      error: typeof result?.error === 'string'
+        ? `Google Apps Script could not complete the registration: ${result.error}`
+        : 'Google Apps Script did not confirm the registration.',
+    })
+    return
+  }
+
+  response.json({ success: true })
 })
 
 app.use('/api', (_request, response) => {
@@ -242,6 +170,10 @@ if (existsSync(path.join(webRoot, 'index.html'))) {
 app.use((error, _request, response, _next) => {
   if (error instanceof SyntaxError && 'body' in error) {
     response.status(400).json({ error: 'Request body must be valid JSON.' })
+    return
+  }
+  if (error?.type === 'entity.too.large') {
+    response.status(413).json({ error: 'The registration request is too large. Project PPT files must be 3 MB or smaller.' })
     return
   }
   console.error('Unhandled API error.')

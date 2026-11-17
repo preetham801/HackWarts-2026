@@ -6,7 +6,7 @@ const highlights = [
   { value: '24 HOURS', label: 'Non-stop hackathon', icon: Clock3 },
   { value: '2–4 MEMBERS', label: 'Team size', icon: Users },
   { value: '2 WOMEN MINIMUM', label: 'Per team', icon: UsersRound },
-  { value: '₹499', label: 'Registration per team', icon: Ticket },
+  { value: 'FREE', label: 'Round 1 registration', icon: Ticket },
 ]
 
 export function RewardsSection() {
