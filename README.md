@@ -12,7 +12,7 @@ Round 1 registration is free and requires a Project PPT / deck upload in `.ppt`,
 4. Copy the deployment's `/exec` URL (not the Google Sheets URL) into `APPS_SCRIPT_URL` in the local `.env`, then restart `npm run dev`. Configure `APPS_SCRIPT_URL` on the production Node host or Vercel as well.
 5. Confirm the Apps Script deployment is the latest version whenever you change its code.
 
-For Vercel, the API is exposed through [`api/[...path].js`](./api/[...path].js) and uses the shared Express application in [`server/app.js`](./server/app.js). Configure `APPS_SCRIPT_URL` under the Vercel project's environment variables, then redeploy.
+For Vercel, registration is exposed through [`api/register.js`](./api/register.js) and uses the shared Express application in [`server/app.js`](./server/app.js). Configure `APPS_SCRIPT_URL` under the Vercel project's environment variables, then redeploy.
 
 1. Copy `.env.example` to `.env` and set `APPS_SCRIPT_URL` to your registration Google Apps Script URL.
 2. Run `npm run dev`. Vite serves the frontend and proxies `/api` requests to the local Express server.

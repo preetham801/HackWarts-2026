@@ -112,7 +112,17 @@ function Register() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       })
-      const result = await response.json()
+      const responseText = await response.text()
+      let result: { success?: boolean; error?: string }
+      try {
+        result = JSON.parse(responseText)
+      } catch {
+        throw new Error(
+          responseText
+            ? `Registration service returned an invalid response (HTTP ${response.status}). Please contact the event organizers.`
+            : `Registration service returned an empty response (HTTP ${response.status}). Please contact the event organizers.`,
+        )
+      }
       if (!response.ok || result.success !== true) {
         throw new Error(result.error ?? 'Could not save your registration. Please try again.')
       }
