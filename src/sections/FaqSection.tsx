@@ -55,7 +55,7 @@ const questions = [
   {
     id: 'build-and-bring',
     question: 'What do we need to build and bring to the venue?',
-    answer: <>Every coven must build a <strong>working prototype or demonstrable proof of concept</strong> aligned with its chosen track. Bring your own laptops, chargers, and any required hardware or project materials.</>,
+    answer: <>Every coven must build a <strong>working prototype or demonstrable proof of concept</strong> aligned with its chosen track. Teams can build <strong>Software, Hardware, or Both (Software &amp; Hardware)</strong> solutions. Bring your own laptops, chargers, and any required project materials.</>,
   },
   {
     id: 'food-and-mentorship',
@@ -68,9 +68,9 @@ const questions = [
     answer: <>
       <p>For questions regarding registration, tracks, or event logistics, reach out to our student coordinators:</p>
       <ul className="faq-coordinator-list">
-        <li><strong>Akhil Reddy:</strong> <a href="tel:+919364086869"><Phone size={14} aria-hidden="true" />+91 93640 86869</a></li>
-        <li><strong>Zain:</strong> <a href="tel:+917019031907"><Phone size={14} aria-hidden="true" />+91 70190 31907</a></li>
-        <li><strong>Chandana:</strong> <a href="tel:+916360943289"><Phone size={14} aria-hidden="true" />+91 63609 43289</a></li>
+        <li><strong>Akhil Reddy S:</strong> <a href="tel:+919364086869"><Phone size={14} aria-hidden="true" />+91 93640 86869</a></li>
+        <li><strong>Mohammed Zain:</strong> <a href="tel:+917019031907"><Phone size={14} aria-hidden="true" />+91 70190 31907</a></li>
+        <li><strong>Chandana R:</strong> <a href="tel:+916360943289"><Phone size={14} aria-hidden="true" />+91 63609 43289</a></li>
       </ul>
     </>,
   },

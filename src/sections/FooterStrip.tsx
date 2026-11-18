@@ -21,9 +21,9 @@ export function FooterStrip() {
       <section className="footer-coordinators" aria-labelledby="footer-coordinators-title">
         <h2 id="footer-coordinators-title">Contact Coordinators</h2>
         <ul>
-          <li><span>Akhil Reddy</span><a href="tel:+919364086869"><Phone size={14} aria-hidden="true" />+91 93640 86869</a></li>
-          <li><span>Zain</span><a href="tel:+917019031907"><Phone size={14} aria-hidden="true" />+91 70190 31907</a></li>
-          <li><span>Chandana</span><a href="tel:+916360943289"><Phone size={14} aria-hidden="true" />+91 63609 43289</a></li>
+          <li><span>Akhil Reddy S</span><a href="tel:+919364086869"><Phone size={14} aria-hidden="true" />+91 93640 86869</a></li>
+          <li><span>Mohammed Zain</span><a href="tel:+917019031907"><Phone size={14} aria-hidden="true" />+91 70190 31907</a></li>
+          <li><span>Chandana R</span><a href="tel:+916360943289"><Phone size={14} aria-hidden="true" />+91 63609 43289</a></li>
         </ul>
       </section>
       <p className="social-placeholder">Social links will be shared when available.</p>
