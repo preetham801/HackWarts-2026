@@ -14,7 +14,7 @@ const rules: Rule[] = [
   { id: 'registration', term: 'Registration fee', detail: '₹499 per coven (team).' },
   { id: 'hackathon-duration', term: 'Hackathon duration', detail: '24 hours' },
   { id: 'venue', term: 'Venue', detail: 'Sri Siddhartha School of Engineering (SSSE), Tumkur' },
-  { id: 'event-date', term: 'Date', detail: 'November 24 & 25, 2026' },
+  { id: 'event-date', term: 'Date', detail: 'November 25 & 26, 2026' },
 ]
 
 function RuleAccordionItem({ rule }: { rule: Rule }) {

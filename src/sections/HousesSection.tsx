@@ -1,7 +1,7 @@
 import { SectionHeading } from '../components/SectionHeading'
 import { Link } from 'react-router-dom'
 import gryffindorCrest from '../assets/tracks/gryffindor-crest.png'
-import hufflepuffCrest from '../assets/tracks/hufflepuff-crest.png'
+import hufflepuffCrest from '../assets/tracks/hufflepuff-crest-transparent.png'
 import ravenclawCrest from '../assets/tracks/ravenclaw-crest.png'
 import slytherinCrest from '../assets/tracks/slytherin-crest.png'
 

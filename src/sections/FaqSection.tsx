@@ -1,3 +1,4 @@
+import { Phone } from 'lucide-react'
 import { SectionHeading } from '../components/SectionHeading'
 
 const questions = [
@@ -5,7 +6,7 @@ const questions = [
     id: 'event-details',
     question: 'When and where is HackWarts 2026 taking place?',
     answer: <>
-      <p>HackWarts 2026 is a 24-hour non-stop national-level hackathon taking place on <strong>November 24 &amp; 25, 2026</strong> at <strong>Sri Siddhartha School of Engineering (SSSE), Tumkur</strong>.</p>
+      <p>HackWarts 2026 is a 24-hour non-stop national-level hackathon taking place on <strong>November 25 &amp; 26, 2026</strong> at <strong>Sri Siddhartha School of Engineering (SSSE), Tumkur</strong>.</p>
       <p>It is organized by <strong>RezonX Club × InUnity × Sri Siddhartha School of Engineering</strong>.</p>
     </>,
   },
@@ -60,6 +61,18 @@ const questions = [
     id: 'food-and-mentorship',
     question: 'Will food, snacks, and mentorship be provided during the 24 hours?',
     answer: <>Yes. Organizers provide mentor guidance, food, refreshments, and snacks throughout the 24-hour sprint.</>,
+  },
+  {
+    id: 'coordinator-contact',
+    question: 'Who can I contact for queries or registration support?',
+    answer: <>
+      <p>For questions regarding registration, tracks, or event logistics, reach out to our student coordinators:</p>
+      <ul className="faq-coordinator-list">
+        <li><strong>Akhil Reddy:</strong> <a href="tel:+919364086869"><Phone size={14} aria-hidden="true" />+91 93640 86869</a></li>
+        <li><strong>Zain:</strong> <a href="tel:+917019031907"><Phone size={14} aria-hidden="true" />+91 70190 31907</a></li>
+        <li><strong>Chandana:</strong> <a href="tel:+916360943289"><Phone size={14} aria-hidden="true" />+91 63609 43289</a></li>
+      </ul>
+    </>,
   },
 ]
 

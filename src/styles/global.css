@@ -387,6 +387,9 @@ a { color: inherit; }
 .faq-answer a { color: var(--light-gold); text-decoration-color: rgb(232 204 145 / 48%); text-underline-offset: .2em; }
 .faq-answer a:hover { color: #f4e5bd; }
 .faq-answer a:focus-visible { outline: 2px solid #e8cc91; outline-offset: 3px; }
+.faq-coordinator-list { display: grid; gap: .35rem; margin: .55rem 0 0; padding-left: 1.25rem; }
+.faq-coordinator-list li { padding-left: .1rem; }
+.faq-coordinator-list a { display: inline-flex; align-items: center; gap: .35rem; white-space: nowrap; }
 @supports selector(details::details-content) {
   .faq-list { interpolate-size: allow-keywords; }
   .faq-item::details-content { block-size: 0; overflow: clip; opacity: 0; transition: block-size 220ms ease, content-visibility 220ms allow-discrete, opacity 180ms ease; }
@@ -973,5 +976,12 @@ a { color: inherit; }
 .footer-resource-links { display: flex; flex-wrap: wrap; justify-content: center; gap: .6rem 1.2rem; margin: .8rem auto; }
 .footer-resource-links a { color: #d7bd7b; font-size: .7rem; text-decoration: none; }
 .footer-resource-links a:hover, .footer-resource-links a:focus-visible { color: #fff0c9; text-decoration: underline; }
+.footer-coordinators { width: min(100%, 900px); margin: 1rem auto; border-block: 1px solid rgb(201 161 91 / 20%); padding: 1rem 0; }
+.footer-coordinators h2 { margin: 0 0 .75rem; color: var(--light-gold); font-family: var(--serif); font-size: 1rem; font-weight: 500; text-align: center; }
+.footer-coordinators ul { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .6rem 1rem; margin: 0; padding: 0; list-style: none; }
+.footer-coordinators li { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: .25rem .55rem; color: #d4c8b0; font-size: .78rem; }
+.footer-coordinators a { display: inline-flex; align-items: center; gap: .3rem; color: #c9a15b; text-decoration: none; white-space: nowrap; }
+.footer-coordinators a:hover, .footer-coordinators a:focus-visible { color: #fff0c9; text-decoration: underline; text-underline-offset: .2em; }
+@media (max-width: 640px) { .footer-coordinators ul { grid-template-columns: 1fr; } .footer-coordinators li { justify-content: space-between; max-width: 290px; margin-inline: auto; width: 100%; } }
 @media (max-width: 640px) { .resources-grid { grid-template-columns: minmax(0, 1fr); } .resource-card__actions a { flex: 1 1 auto; } }
 @media (prefers-reduced-motion: reduce) { .resource-card { transition: none; } .resource-card:hover, .resource-card:focus-within { transform: none; } }

@@ -19,7 +19,7 @@ export function HeroSection() {
           <Link className="button button--gold" to="/register">Register Now <ArrowUpRight size={16} aria-hidden="true" /></Link>
           <a className="button button--quiet" href="#about">Explore the School</a>
         </div>
-        <p className="hero-date">November 24 &amp; 25, 2026</p>
+        <p className="hero-date">November 25 &amp; 26, 2026</p>
       </div>
       <a href="#about" className="scroll-cue" aria-label="Scroll to the invitation"><span>Discover</span><ArrowDown size={16} aria-hidden="true" /></a>
     </section>

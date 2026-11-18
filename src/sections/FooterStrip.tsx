@@ -1,4 +1,4 @@
-import { ArrowUp, Sparkles } from 'lucide-react'
+import { ArrowUp, Phone, Sparkles } from 'lucide-react'
 import { MagicalOwl } from '../components/MagicalOwl'
 import logo from '../assets/branding/hackwarts-2026-logo-transparent.png'
 import { CollaborationLogos } from '../components/CollaborationLogos'
@@ -18,6 +18,14 @@ export function FooterStrip() {
       </div>
       <nav className="footer-links" aria-label="Footer navigation">{footerLinks.map(([label, href]) => <a href={href} key={href}>{label}</a>)}</nav>
       <nav className="footer-resource-links" aria-label="Official downloads"><a href="/downloads/HackWarts-2026-Brochure.pdf" target="_blank" rel="noopener noreferrer">Event Brochure</a><a href="/downloads/HackWarts-2026-PPT-Template.pptx" download="HackWarts-2026-PPT-Template.pptx">PPT Template</a></nav>
+      <section className="footer-coordinators" aria-labelledby="footer-coordinators-title">
+        <h2 id="footer-coordinators-title">Contact Coordinators</h2>
+        <ul>
+          <li><span>Akhil Reddy</span><a href="tel:+919364086869"><Phone size={14} aria-hidden="true" />+91 93640 86869</a></li>
+          <li><span>Zain</span><a href="tel:+917019031907"><Phone size={14} aria-hidden="true" />+91 70190 31907</a></li>
+          <li><span>Chandana</span><a href="tel:+916360943289"><Phone size={14} aria-hidden="true" />+91 63609 43289</a></li>
+        </ul>
+      </section>
       <p className="social-placeholder">Social links will be shared when available.</p>
       <div className="footer-collaboration"><CollaborationLogos variant="footer" /><p>In collaboration with RezonX, InUnity, and Sri Siddhartha School of Engineering</p></div>
       <MagicalOwl />
