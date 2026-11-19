@@ -45,7 +45,7 @@ app.post('/api/register', async (request, response) => {
     !requiredTextFields.every((value) => typeof value === 'string' && value.trim().length > 0) ||
     typeof email !== 'string' || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ||
     typeof phone !== 'string' || !/^\d{10}$/.test(phone) ||
-    !Number.isInteger(teamSize) || teamSize < 2 || teamSize > 4 ||
+    !Number.isInteger(teamSize) || teamSize !== 4 ||
     !optionalTextFields.every((value) => typeof value === 'string') ||
     !['', 'Gryffindor', 'Hufflepuff', 'Ravenclaw', 'Slytherin'].includes(house) ||
     typeof pptFileName !== 'string' || !/^[^\\/:*?"<>|]+\.(ppt|pptx|pdf)$/i.test(pptFileName) ||

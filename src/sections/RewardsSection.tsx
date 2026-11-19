@@ -1,11 +1,10 @@
 import { SectionHeading } from '../components/SectionHeading'
 import { ScratchReveal } from '../components/ScratchReveal'
-import { Clock3, Coins, Ticket, Trophy, Users, UsersRound } from 'lucide-react'
+import { Clock3, Coins, Ticket, Trophy, Users } from 'lucide-react'
 
 const highlights = [
   { value: '24 HOURS', label: 'Non-stop hackathon', icon: Clock3 },
-  { value: '2–4 MEMBERS', label: 'Team size', icon: Users },
-  { value: '2 WOMEN MINIMUM', label: 'Per team', icon: UsersRound },
+  { value: '4 MEMBERS', label: 'Team composition', icon: Users },
   { value: '₹499', label: 'Registration per coven', icon: Ticket },
 ]
 

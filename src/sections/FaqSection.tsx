@@ -12,8 +12,8 @@ const questions = [
   },
   {
     id: 'team-size',
-    question: 'What is the required team size and composition?',
-    answer: <>Each coven (team) must have <strong>2 to 4 participants</strong>, and <strong>at least two women participants are mandatory</strong> in every coven.</>,
+    question: 'What is the required team size?',
+    answer: <>Each coven (team) must consist of <strong>4 participants</strong>.</>,
   },
   {
     id: 'registration-fee',

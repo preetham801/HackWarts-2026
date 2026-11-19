@@ -32,7 +32,7 @@ const registrationFields = [
   { label: 'Email address', name: 'email', type: 'email' },
   { label: 'Phone number', name: 'phone', type: 'tel' },
   { label: 'College name', name: 'college', type: 'text' },
-  { label: 'Number of team members', name: 'teamSize', type: 'number' },
+  { label: 'Number of team members (4)', name: 'teamSize', type: 'number' },
 ] as const
 
 function readFormValue(formData: FormData, name: string) {
@@ -161,8 +161,9 @@ function Register() {
                             type={type}
                             name={name}
                             required
-                            min={type === 'number' ? 2 : undefined}
+                            min={type === 'number' ? 4 : undefined}
                             max={type === 'number' ? 4 : undefined}
+                            defaultValue={type === 'number' ? 4 : undefined}
                             pattern={name === 'phone' ? '[0-9]{10}' : undefined}
                             inputMode={name === 'phone' ? 'numeric' : undefined}
                             title={name === 'phone' ? 'Enter a 10-digit phone number.' : undefined}

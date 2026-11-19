@@ -14,7 +14,7 @@ const registration = {
   email: 'leader@example.com',
   phone: '1234567890',
   college: 'Hogwarts',
-  teamSize: 2,
+  teamSize: 4,
   member1: 'Ron Weasley',
   member2: '',
   member3: '',
