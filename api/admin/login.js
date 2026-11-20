@@ -1,10 +1,4 @@
 import { app } from '../../server/index.js'
+import { createApiHandler } from '../../server/vercelHandlers.js'
 
-export default function handler(request, response) {
-  const requestUrl = request.url || '/'
-  if (!requestUrl.split('?')[0].startsWith('/api/')) {
-    const query = requestUrl.includes('?') ? requestUrl.slice(requestUrl.indexOf('?')) : ''
-    request.url = `/api/admin/login${query}`
-  }
-  return app(request, response)
-}
+export default createApiHandler(app, '/api/admin/login')

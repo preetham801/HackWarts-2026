@@ -1,3 +1,4 @@
-import app from '../server/app.js'
+import { app } from '../server/index.js'
+import { createApiHandler } from '../server/vercelHandlers.js'
 
-export default app
+export default createApiHandler(app, '/api/register')
