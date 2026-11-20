@@ -48,7 +48,7 @@ app.post('/api/register', async (request, response) => {
     typeof phone !== 'string' || !/^\d{10}$/.test(phone) ||
     !Number.isInteger(teamSize) || teamSize !== 4 ||
     !optionalTextFields.every((value) => typeof value === 'string') ||
-    !['', 'Gryffindor', 'Hufflepuff', 'Ravenclaw', 'Slytherin'].includes(house) ||
+    !['Health & Safety', 'Sustainability & Development', 'EdTech & FinTech', 'AgriTech'].includes(house) ||
     typeof pptFileName !== 'string' || !/^[^\\/:*?"<>|]+\.(ppt|pptx|pdf)$/i.test(pptFileName) ||
     typeof pptBase64 !== 'string' || !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(pptBase64) ||
     typeof pptMimeType !== 'string'

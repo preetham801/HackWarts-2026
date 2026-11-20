@@ -70,7 +70,7 @@ function doPost(event) {
         `• Team Leader: ${data.leaderName}`,
         `• College: ${data.college}`,
         `• Team Size: ${data.teamSize}`,
-        `• House Preference: ${data.house || 'No Preference'}`,
+        `• Selected Track: ${data.house}`,
         `• Submitted Project PPT: ${pptFileUrl}`,
         '',
         'Our organizing council will review your project deck and notify you regarding Round 2 qualification and payment details shortly.',

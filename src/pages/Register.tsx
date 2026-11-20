@@ -98,6 +98,7 @@ function Register() {
       member2: readFormValue(formData, 'member2'),
       member3: readFormValue(formData, 'member3'),
       member4: readFormValue(formData, 'member4'),
+      // Keep the legacy `house` field name for the existing registration API and sheet column.
       house: readFormValue(formData, 'house'),
       pptBase64: '',
       pptFileName: pptFile.name,
@@ -175,7 +176,7 @@ function Register() {
                       {[1, 2, 3, 4].map((member) => (
                         <label key={member}>Member {member} Details<input type="text" name={`member${member}`} /></label>
                       ))}
-                      <label>House preference (if applicable)<select name="house" defaultValue=""><option value="">Select a house</option><option>Gryffindor</option><option>Hufflepuff</option><option>Ravenclaw</option><option>Slytherin</option></select></label>
+                      <label>Preferred Track<select name="house" defaultValue="" required><option value="" disabled>Select a problem track</option><option>Health &amp; Safety</option><option>Sustainability &amp; Development</option><option>EdTech &amp; FinTech</option><option>AgriTech</option></select></label>
                     </div>
                     <label className="registration-ppt-field">
                       Project PPT / Deck
