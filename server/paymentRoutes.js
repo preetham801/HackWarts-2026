@@ -6,7 +6,7 @@ import {
   sendConfirmationEmail,
   sendShortlistEmail,
 } from './paymentMailer.js'
-import { listShortlistedTeams, saveShortlistedTeam } from './shortlistedTeamsStore.js'
+import { listShortlistedTeams, saveShortlistedTeam, saveShortlistedTeams } from './shortlistedTeamsStore.js'
 
 const router = express.Router()
 const tracks = new Set(['Health & Safety', 'Sustainability & Development', 'EdTech & FinTech', 'AgriTech'])
@@ -264,7 +264,7 @@ router.post('/api/admin/teams', requireAdmin, async (request, response) => {
     existingEmails.add(team.leaderEmail.toLowerCase())
     created.push(team)
   }
-  for (const team of created) await saveShortlistedTeam(team)
+  await saveShortlistedTeams(created)
   response.status(201).json({ teams: created })
 })
 

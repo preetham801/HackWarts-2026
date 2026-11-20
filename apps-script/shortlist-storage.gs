@@ -1,0 +1,110 @@
+/*
+ * HackWarts shortlisted-team storage for the existing Apps Script web app.
+ *
+ * Paste this file into the same Apps Script project as Code.gs. Code.gs must
+ * dispatch the three shortlist actions from doPost before its registration
+ * handling (the matching dispatch is already included in this repository's
+ * Code.gs).
+ *
+ * In Project Settings > Script Properties, set:
+ *   SHORTLIST_STORAGE_SECRET = the same value as Vercel's
+ *     APPS_SCRIPT_STORAGE_SECRET
+ * In Vercel, also set APPS_SCRIPT_SHORTLIST_STORAGE_ENABLED=1 only after the
+ * updated Apps Script deployment is live. This opt-in prevents an older
+ * registration-only deployment from treating storage requests as registrations.
+ * Optional for a standalone Apps Script project:
+ *   SHORTLIST_SPREADSHEET_ID = the ID of the existing event spreadsheet
+ * Then redeploy the web app and update Vercel's APPS_SCRIPT_URL if its /exec
+ * deployment URL changed.
+ */
+function handleShortlistStorageAction_(data) {
+  const supportedActions = ['shortlist_list', 'shortlist_upsert', 'shortlist_bulk_upsert'];
+  if (!supportedActions.includes(data.action)) {
+    return shortlistJson_({ success: false, error: 'Unsupported shortlist storage action.' });
+  }
+
+  const expectedSecret = PropertiesService.getScriptProperties().getProperty('SHORTLIST_STORAGE_SECRET');
+  if (!expectedSecret || data.storageSecret !== expectedSecret) {
+    return shortlistJson_({ success: false, error: 'Shortlist storage authorization is not configured.' });
+  }
+
+  const properties = PropertiesService.getScriptProperties();
+  const spreadsheetId = properties.getProperty('SHORTLIST_SPREADSHEET_ID');
+  const spreadsheet = spreadsheetId
+    ? SpreadsheetApp.openById(spreadsheetId)
+    : SpreadsheetApp.getActiveSpreadsheet();
+  if (!spreadsheet) {
+    return shortlistJson_({ success: false, error: 'The shortlist spreadsheet is not configured.' });
+  }
+
+  const lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    const sheet = spreadsheet.getSheetByName('ShortlistedTeams')
+      || spreadsheet.insertSheet('ShortlistedTeams');
+    const headers = ['team_id', 'record_json', 'updated_at'];
+    if (sheet.getLastRow() === 0) {
+      sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+    } else {
+      const actualHeaders = sheet.getRange(1, 1, 1, headers.length).getValues()[0];
+      if (headers.some((header, index) => actualHeaders[index] !== header)) {
+        throw new Error('The ShortlistedTeams tab has unexpected column headers.');
+      }
+    }
+
+    if (data.action === 'shortlist_list') {
+      const lastRow = sheet.getLastRow();
+      const teams = lastRow < 2
+        ? []
+        : sheet.getRange(2, 1, lastRow - 1, headers.length).getValues()
+          .map((row) => JSON.parse(row[1]))
+          .filter((team) => team && typeof team.id === 'string');
+      return shortlistJson_({ success: true, storageVersion: 'hackwarts-shortlist-v1', teams });
+    }
+
+    const teams = data.action === 'shortlist_upsert' ? [data.team] : data.teams;
+    if (!Array.isArray(teams) || teams.length === 0 || teams.length > 500) {
+      throw new Error('Provide between 1 and 500 shortlist records.');
+    }
+    if (teams.some((team) => !team || typeof team.id !== 'string' || !team.id)) {
+      throw new Error('Every shortlist record must have a team ID.');
+    }
+
+    const lastRow = sheet.getLastRow();
+    const storedRows = lastRow < 2
+      ? []
+      : sheet.getRange(2, 1, lastRow - 1, headers.length).getValues();
+    const rowById = new Map(storedRows.map((row, index) => [String(row[0]), index + 2]));
+    const updates = new Map();
+    const additions = [];
+    const updatedAt = new Date().toISOString();
+    for (const team of teams) {
+      const row = [team.id, JSON.stringify(team), updatedAt];
+      const existingRow = rowById.get(team.id);
+      if (existingRow) updates.set(existingRow, row);
+      else {
+        const newRow = lastRow + additions.length + 1;
+        rowById.set(team.id, newRow);
+        additions.push(row);
+      }
+    }
+
+    for (const [rowNumber, row] of updates) {
+      sheet.getRange(rowNumber, 1, 1, headers.length).setValues([row]);
+    }
+    if (additions.length) {
+      sheet.getRange(lastRow + 1, 1, additions.length, headers.length).setValues(additions);
+    }
+    return shortlistJson_({ success: true, storageVersion: 'hackwarts-shortlist-v1', count: teams.length });
+  } catch (error) {
+    return shortlistJson_({ success: false, error: error.message || 'Shortlist storage action failed.' });
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function shortlistJson_(payload) {
+  return ContentService
+    .createTextOutput(JSON.stringify(payload))
+    .setMimeType(ContentService.MimeType.JSON);
+}

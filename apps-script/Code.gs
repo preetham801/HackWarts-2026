@@ -3,6 +3,14 @@ const PPT_FOLDER_ID = '1QCPmQoyK2lStsTiXAaBvgN4sDWzftpf4';
 function doPost(event) {
   try {
     const data = JSON.parse(event.postData.contents);
+    if (data.action) {
+      if (['shortlist_list', 'shortlist_upsert', 'shortlist_bulk_upsert'].includes(data.action)) {
+        return handleShortlistStorageAction_(data);
+      }
+      return ContentService
+        .createTextOutput(JSON.stringify({ success: false, error: 'Unsupported action.' }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
     const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
     const sheet = spreadsheet.getSheetByName('Registrations')
       || spreadsheet.getSheets()[0];
