@@ -7,8 +7,9 @@ import { readApiResponse } from '../utils/apiResponse'
 type Receipt = {
   receiptId: string
   teamId: string
-  razorpayPaymentId: string
-  razorpayOrderId: string
+  paymentProvider: 'instamojo' | 'razorpay'
+  paymentId: string
+  orderId: string
   teamName: string
   collegeName: string
   houseTrack: string
@@ -84,11 +85,12 @@ function formatDate(value: string) {
 }
 
 function receiptRows(receipt: Receipt) {
+  const provider = receipt.paymentProvider === 'instamojo' ? 'Instamojo' : 'Razorpay'
   return [
     ['Receipt ID', receipt.receiptId],
     ['Team ID', receipt.teamId],
-    ['Razorpay Payment ID', receipt.razorpayPaymentId],
-    ['Razorpay Order ID', receipt.razorpayOrderId],
+    [`${provider} Payment ID`, receipt.paymentId],
+    [receipt.paymentProvider === 'instamojo' ? 'Instamojo Payment Request ID' : 'Razorpay Order ID', receipt.orderId],
     ['Team Name', receipt.teamName],
     ['College', receipt.collegeName],
     ['House / Track', receipt.houseTrack],
@@ -139,16 +141,49 @@ export default function PaymentPage() {
 
   useEffect(() => {
     if (!token) return
-    let cancelled = false
-    fetch(`/api/payment/team?token=${encodeURIComponent(token)}`)
+    const controller = new AbortController()
+    fetch(`/api/payment/team?token=${encodeURIComponent(token)}`, { signal: controller.signal })
       .then((response) => readApiResponse<{ team: PaymentTeam }>(response))
       .then((result) => result.team)
-      .then((loadedTeam) => { if (!cancelled) setTeam(loadedTeam) })
+      .then((loadedTeam) => { if (!controller.signal.aborted) setTeam(loadedTeam) })
       .catch((lookupError: unknown) => {
-        if (!cancelled) setError(lookupError instanceof Error ? lookupError.message : 'Could not find your shortlist record.')
+        if (!controller.signal.aborted) setError(lookupError instanceof Error ? lookupError.message : 'Could not find your shortlist record.')
       })
-    return () => { cancelled = true }
+    return () => controller.abort()
   }, [token])
+
+  const instamojoPaymentId = searchParams.get('payment_id') ?? ''
+  const instamojoPaymentRequestId = searchParams.get('payment_request_id') ?? ''
+  const instamojoPaymentStatus = searchParams.get('payment_status') ?? ''
+
+  useEffect(() => {
+    if (!token || !instamojoPaymentId || !instamojoPaymentRequestId) return
+    const controller = new AbortController()
+    const verifyPayment = async () => {
+      setBusy(true)
+      setError('')
+      setNotice('')
+      try {
+        const params = new URLSearchParams({
+          token,
+          payment_id: instamojoPaymentId,
+          payment_request_id: instamojoPaymentRequestId,
+          payment_status: instamojoPaymentStatus,
+        })
+        const response = await fetch(`/api/payment/verify-instamojo?${params}`, { signal: controller.signal })
+        const result = await readApiResponse<{ success: boolean; team: PaymentTeam; emailSent: boolean }>(response)
+        if (result.success !== true) throw new Error('Payment verification is not complete.')
+        setTeam(result.team)
+        setNotice(result.emailSent ? 'Payment verified. Your confirmation and receipt have been emailed.' : 'Payment verified. Your receipt is ready below; the confirmation email may still be processing.')
+      } catch (verificationError) {
+        if (!controller.signal.aborted) setError(verificationError instanceof Error ? verificationError.message : 'Instamojo payment verification could not be completed. Contact the organizers before paying again.')
+      } finally {
+        if (!controller.signal.aborted) setBusy(false)
+      }
+    }
+    void verifyPayment()
+    return () => controller.abort()
+  }, [token, instamojoPaymentId, instamojoPaymentRequestId, instamojoPaymentStatus])
 
   const handleLookup = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -166,7 +201,14 @@ export default function PaymentPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ token: token || undefined, teamId: team.id, leaderEmail: team.leaderEmail }),
       })
-      const order = await readApiResponse<{ orderId: string; amount: number; currency: string; keyId: string }>(orderResponse)
+      const order = await readApiResponse<
+        | { provider: 'instamojo'; paymentRequestId: string; checkoutUrl: string }
+        | { provider: 'razorpay'; orderId: string; amount: number; currency: string; keyId: string }
+      >(orderResponse)
+      if (order.provider === 'instamojo') {
+        window.location.href = order.checkoutUrl
+        return
+      }
       if (!await loadRazorpayCheckout() || !window.Razorpay) throw new Error('Razorpay Checkout could not load. Check your connection and try again.')
       const checkout = new window.Razorpay({
         key: order.keyId,
@@ -212,7 +254,7 @@ export default function PaymentPage() {
         <div><input id="payment-lookup" autoComplete="email" value={query} onChange={(event) => setQuery(event.target.value)} required placeholder="Enter your Team ID or email" /><button className="payment-button payment-button--secondary" type="submit" disabled={busy}>{busy ? 'Checking…' : 'Find my team'}</button></div>
         <p>Use the exact Team ID or leader email supplied during shortlisting.</p>
       </form>}
-      {(busy && !team || token && !team && !error) && <p className="payment-status" role="status">Loading your shortlist record…</p>}
+      {(busy && !team || token && !team && !error) && <p className="payment-status" role="status">{instamojoPaymentId ? 'Verifying your Instamojo payment…' : 'Loading your shortlist record…'}</p>}
       {error && <p className="payment-alert" role="alert">{error}</p>}
       {notice && <p className="payment-notice" role="status">{notice}</p>}
       {team && <>

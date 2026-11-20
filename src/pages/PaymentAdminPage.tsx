@@ -16,6 +16,9 @@ type Team = {
   amount: number
   shortlistEmailSent: boolean
   paymentStatus: 'PENDING' | 'PAID'
+  paymentProvider?: 'instamojo' | 'razorpay'
+  paymentId?: string
+  orderId?: string
   razorpayOrderId: string
   razorpayPaymentId: string
   paidAt: string
@@ -54,8 +57,9 @@ function PortalReceipt({ team, onClose }: { team: Team; onClose: () => void }) {
         <div className="payment-receipt__heading"><div><p className="payment-eyebrow">Official payment receipt</p><h2 id="admin-receipt-title">{team.teamName}</h2></div><button type="button" className="payment-icon-button" onClick={onClose} aria-label="Close receipt">×</button></div>
         <dl>
           {[
-            ['Receipt ID', team.receiptId || `HW-${team.razorpayPaymentId.slice(-10).toUpperCase()}`], ['Team ID', team.id],
-            ['Razorpay Payment ID', team.razorpayPaymentId], ['Razorpay Order ID', team.razorpayOrderId], ['College', team.collegeName],
+            ['Receipt ID', team.receiptId || `HW-${String(team.paymentId || team.razorpayPaymentId).slice(-10).toUpperCase()}`], ['Team ID', team.id],
+            [team.paymentProvider === 'instamojo' ? 'Instamojo Payment ID' : 'Razorpay Payment ID', team.paymentId || team.razorpayPaymentId],
+            [team.paymentProvider === 'instamojo' ? 'Instamojo Payment Request ID' : 'Razorpay Order ID', team.orderId || team.razorpayOrderId], ['College', team.collegeName],
             ['Track', team.houseTrack], ['Team Leader', team.leaderName], ['Amount Paid', '₹499.00 INR'], ['Payment Status', team.paymentStatus],
             ['Payment Date / Time', team.paidAt ? new Date(team.paidAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }) : '—'],
           ].map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}
@@ -156,7 +160,7 @@ export default function PaymentAdminPage() {
   const totalPaid = teams.filter((team) => team.paymentStatus === 'PAID').length
   const exportPaid = () => {
     const paid = teams.filter((team) => team.paymentStatus === 'PAID')
-    const rows = [['Team ID', 'Team Name', 'College', 'House / Track', 'Leader', 'Email', 'Phone', 'Razorpay Payment ID', 'Paid At'], ...paid.map((team) => [team.id, team.teamName, team.collegeName, team.houseTrack, team.leaderName, team.leaderEmail, team.leaderPhone, team.razorpayPaymentId, team.paidAt])]
+    const rows = [['Team ID', 'Team Name', 'College', 'House / Track', 'Leader', 'Email', 'Phone', 'Payment Provider', 'Payment ID', 'Order / Request ID', 'Paid At'], ...paid.map((team) => [team.id, team.teamName, team.collegeName, team.houseTrack, team.leaderName, team.leaderEmail, team.leaderPhone, team.paymentProvider || 'razorpay', team.paymentId || team.razorpayPaymentId, team.orderId || team.razorpayOrderId, team.paidAt])]
     const blob = new Blob([rows.map((row) => row.map(escapeCsv).join(',')).join('\r\n')], { type: 'text/csv;charset=utf-8' })
     const url = URL.createObjectURL(blob)
     const link = document.createElement('a'); link.href = url; link.download = 'HackWarts-Paid-Teams.csv'; link.click(); URL.revokeObjectURL(url)

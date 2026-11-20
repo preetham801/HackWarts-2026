@@ -32,10 +32,16 @@ function emailFrame(title, content) {
 }
 
 export function buildReceipt(team) {
-  const receiptId = team.receiptId || `HW-${String(team.razorpayPaymentId || '').slice(-10).toUpperCase()}`
+  const paymentProvider = team.paymentProvider || 'razorpay'
+  const paymentId = team.paymentId || team.razorpayPaymentId || team.instamojoPaymentId || ''
+  const orderId = team.orderId || team.razorpayOrderId || team.instamojoPaymentRequestId || ''
+  const receiptId = team.receiptId || `HW-${String(paymentId).slice(-10).toUpperCase()}`
   return {
     receiptId,
     teamId: team.id,
+    paymentProvider,
+    paymentId,
+    orderId,
     razorpayPaymentId: team.razorpayPaymentId,
     razorpayOrderId: team.razorpayOrderId,
     teamName: team.teamName,
@@ -50,10 +56,11 @@ export function buildReceipt(team) {
 }
 
 function receiptRows(receipt) {
+  const providerName = receipt.paymentProvider === 'instamojo' ? 'Instamojo' : 'Razorpay'
   const values = [
     ['Receipt ID', receipt.receiptId],
-    ['Razorpay Payment ID', receipt.razorpayPaymentId],
-    ['Razorpay Order ID', receipt.razorpayOrderId],
+    [`${providerName} Payment ID`, receipt.paymentId],
+    [receipt.paymentProvider === 'instamojo' ? 'Instamojo Payment Request ID' : 'Razorpay Order ID', receipt.orderId],
     ['Team Name', receipt.teamName],
     ['College', receipt.collegeName],
     ['House / Track', receipt.houseTrack],
@@ -78,7 +85,7 @@ export async function sendShortlistEmail(team) {
 }
 
 export async function sendConfirmationEmail(team) {
-  if (team.paymentStatus !== 'PAID' || !team.paidAt || !team.razorpayPaymentId) throw new Error('A verified paid team is required to send a receipt.')
+  if (team.paymentStatus !== 'PAID' || !team.paidAt || !(team.paymentId || team.razorpayPaymentId || team.instamojoPaymentId)) throw new Error('A verified paid team is required to send a receipt.')
   const receipt = buildReceipt(team)
   const link = `${publicSiteUrl()}/payment?token=${encodeURIComponent(team.token)}`
   const html = emailFrame('Slot confirmed — you are officially in', `<p>Welcome to HackWarts 2026! You are officially in and your slot is booked for November 25 &amp; 26, 2026 at Sri Siddhartha School of Engineering (SSSE), Tumkur.</p><h2 style="color:#f4df9b">Official Payment Receipt Slip</h2><table style="width:100%;border-collapse:collapse;background:#0a111c">${receiptRows(receipt)}</table><p><a href="${escapeHtml(link)}" style="color:#f4df9b">View or print your digital receipt</a></p>`)

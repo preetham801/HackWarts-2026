@@ -21,6 +21,7 @@ function hasExpectedFileSignature(buffer, extension) {
 }
 
 app.use(express.json({ limit: '6mb' }))
+app.use(express.urlencoded({ extended: false }))
 
 app.post('/api/register', async (request, response) => {
   const {
