@@ -15,6 +15,8 @@ import { ResourcesSection } from './sections/ResourcesSection'
 import { useScrollReveal } from './hooks/useScrollReveal'
 import Register from './pages/Register'
 import { HouseDetailPage } from './components/HouseDetailPage'
+import PaymentPage from './pages/PaymentPage'
+import PaymentAdminPage from './pages/PaymentAdminPage'
 
 function HomePage() {
   return (
@@ -41,22 +43,25 @@ function FullTimelinePage() {
 function App() {
   useScrollReveal()
   const { pathname } = useLocation()
+  const isPaymentPortal = pathname === '/payment' || pathname === '/payment/admin'
 
   useEffect(() => {
     window.scrollTo(0, 0)
   }, [pathname])
 
   return (
-    <div className="site-shell">
-      <SiteHeader />
+    <div className={isPaymentPortal ? 'payment-portal-shell' : 'site-shell'}>
+      {!isPaymentPortal && <SiteHeader />}
       <Routes>
         <Route path="/" element={<HomePage />} />
         <Route path="/register" element={<Register />} />
         <Route path="/houses/:houseSlug" element={<HouseDetailPage />} />
         <Route path="/timeline" element={<FullTimelinePage />} />
+        <Route path="/payment" element={<PaymentPage />} />
+        <Route path="/payment/admin" element={<PaymentAdminPage />} />
       </Routes>
-      <EnchantedWandCursor />
-      <WizardingBgmPlayer />
+      {!isPaymentPortal && <EnchantedWandCursor />}
+      {!isPaymentPortal && <WizardingBgmPlayer />}
     </div>
   )
 }

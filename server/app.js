@@ -3,6 +3,7 @@ import express from 'express'
 import { existsSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import paymentRoutes from './paymentRoutes.js'
 
 const app = express()
 const maxPptBytes = 3 * 1024 * 1024
@@ -156,6 +157,8 @@ app.post('/api/register', async (request, response) => {
   response.json({ success: true })
 })
 
+app.use(paymentRoutes)
+
 app.use('/api', (_request, response) => {
   response.status(404).json({ error: 'API endpoint not found.' })
 })
@@ -173,11 +176,12 @@ app.use((error, _request, response, _next) => {
     return
   }
   if (error?.type === 'entity.too.large') {
-    response.status(413).json({ error: 'The registration request is too large. Project PPT files must be 3 MB or smaller.' })
+    response.status(413).json({ error: 'The request is too large. Project PPT files must be 3 MB or smaller.' })
     return
   }
-  console.error('Unhandled API error.')
-  response.status(500).json({ error: 'An unexpected server error occurred.' })
+  const status = Number.isInteger(error?.status) && error.status >= 400 && error.status < 600 ? error.status : 500
+  if (status === 500) console.error('Unhandled API error:', error)
+  response.status(status).json({ error: status === 500 ? 'An unexpected server error occurred.' : error.message })
 })
 
 export default app
