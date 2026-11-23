@@ -10,7 +10,7 @@ import {
 import { listShortlistedTeams, saveShortlistedTeam, saveShortlistedTeams } from './shortlistedTeamsStore.js'
 
 const router = express.Router()
-const tracks = new Set(['Health & Safety', 'Sustainability & Development', 'EdTech & FinTech', 'AgriTech'])
+const tracks = new Set(['Health & Safety', 'Sustainability & Development', 'EdTech & FinTech', 'AgriTech', 'Open Innovation'])
 const loginAttempts = new Map()
 const loginWindowMs = 15 * 60 * 1000
 const maxLoginAttempts = 8
@@ -32,6 +32,14 @@ function normalizeRegistration(row, headers = []) {
     }
     return ''
   }
+  const pickContaining = (...fragments) => {
+    for (const [key, value] of values) {
+      if (fragments.some((fragment) => key.includes(fragment)) && value !== undefined && value !== null && String(value).trim()) {
+        return String(value).trim()
+      }
+    }
+    return ''
+  }
   const members = pick('members', 'membernames').split(/[;,|]/).map((name) => name.trim()).filter(Boolean)
   for (let index = 1; index <= 4; index++) {
     const member = pick(`member${index}`, `team member ${index}`)
@@ -39,12 +47,12 @@ function normalizeRegistration(row, headers = []) {
   }
   return {
     teamName: pick('teamName', 'team'),
-    track: pick('selectedTrack', 'track', 'house', 'trackProblemStatement', 'problemStatementTrack', 'problemStatement', 'problemDomain'),
+    track: pick('selectedTrack', 'track', 'house', 'trackProblemStatement', 'problemStatementTrack', 'problemStatement', 'problemDomain') || pickContaining('track', 'house') || 'Open Innovation',
     teamSize: pick('teamSize', 'size', 'memberCount', 'teamMembers'),
     leaderName: pick('leaderName', 'teamLeader', 'name'),
     leaderEmail: pick('leaderEmail', 'email', 'emailAddress', 'registeredEmail'),
     leaderPhone: pick('leaderPhone', 'phone', 'phoneNumber', 'mobile'),
-    collegeName: pick('college', 'collegeName', 'institution'),
+    collegeName: pick('college', 'collegeName', 'institution') || 'Not specified',
     members,
     pptLink: pick('pptLink', 'pptUrl', 'projectPpt', 'presentationLink'),
     timestamp: pick('timestamp', 'submittedAt', 'registrationTimestamp', 'date'),

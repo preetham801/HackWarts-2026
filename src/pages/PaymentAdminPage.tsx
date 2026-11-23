@@ -201,7 +201,11 @@ export default function PaymentAdminPage() {
     try {
       const result = await api<{ team: Team; emailSent: boolean; emailError?: string }>('/api/admin/shortlist', {
         method: 'POST',
-        body: JSON.stringify(registration),
+        body: JSON.stringify({
+          ...registration,
+          track: registration.track?.trim() || 'Open Innovation',
+          collegeName: registration.collegeName?.trim() || 'Not specified',
+        }),
       })
       setTeams((current) => [result.team, ...current])
       setMessage(result.emailSent
