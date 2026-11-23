@@ -93,6 +93,7 @@ export default function PaymentAdminPage() {
   const [registrationSearch, setRegistrationSearch] = useState('')
   const [registrationError, setRegistrationError] = useState('')
   const [paymentIdDrafts, setPaymentIdDrafts] = useState<Record<string, string>>({})
+  const [shortlistingRowId, setShortlistingRowId] = useState('')
   const [filter, setFilter] = useState<'ALL' | 'PENDING' | 'PAID'>('ALL')
   const [showImporter, setShowImporter] = useState(false)
   const [csvText, setCsvText] = useState('')
@@ -193,6 +194,54 @@ export default function PaymentAdminPage() {
   }), [registrationSearch, registrations])
 
   const totalPaid = teams.filter((team) => team.paymentStatus === 'PAID').length
+  const shortlistRegistration = async (registration: Registration, rowId: string) => {
+    setShortlistingRowId(rowId)
+    setError('')
+    setMessage('')
+    try {
+      const result = await api<{ team: Team; emailSent: boolean; emailError?: string }>('/api/admin/shortlist', {
+        method: 'POST',
+        body: JSON.stringify(registration),
+      })
+      setTeams((current) => [result.team, ...current])
+      setMessage(result.emailSent
+        ? `${registration.teamName} shortlisted and invitation emailed to ${registration.leaderEmail}.`
+        : result.emailError || `${registration.teamName} shortlisted; invitation email needs a resend.`)
+    } catch (shortlistError) {
+      setError(shortlistError instanceof Error ? shortlistError.message : 'Could not shortlist this registered team.')
+    } finally {
+      setShortlistingRowId('')
+    }
+  }
+
+  const registrationSection = <section className="payment-team-list" aria-labelledby="registrations-title">
+    <div className="payment-team-list__heading"><h2 id="registrations-title">Registered Teams (Google Sheet)</h2><span>{registrations.length} registration{registrations.length === 1 ? '' : 's'}</span></div>
+    {registrationError && <p className="payment-alert" role="alert">{registrationError}</p>}
+    <label className="payment-search"><Search size={16} aria-hidden="true" /><input aria-label="Search registered teams" placeholder="Search registered team, leader, college or track" value={registrationSearch} onChange={(event) => setRegistrationSearch(event.target.value)} /></label>
+    <div className="payment-table-scroll"><table className="payment-table"><thead><tr><th>Team</th><th>Leader</th><th>Track</th><th>Size</th><th>Registered</th><th>Action</th></tr></thead><tbody>
+      {filteredRegistrations.map((registration, index) => {
+        const rowId = `${registration.leaderEmail}-${registration.teamName}-${registration.timestamp}-${index}`
+        const registrationEmail = String(registration.leaderEmail ?? '').trim().toLowerCase()
+        const registrationName = String(registration.teamName ?? '').trim().toLowerCase()
+        const alreadyShortlisted = teams.some((team) => {
+          const teamEmail = String(team.leaderEmail ?? '').trim().toLowerCase()
+          const teamName = String(team.teamName ?? '').trim().toLowerCase()
+          return Boolean((registrationEmail && teamEmail && registrationEmail === teamEmail)
+            || (registrationName && teamName && registrationName === teamName))
+        })
+        const isSubmitting = shortlistingRowId === rowId
+        return <tr key={rowId}>
+          <td><strong>{registration.teamName || 'Unnamed team'}</strong><small>{registration.collegeName}</small></td>
+          <td>{registration.leaderName}<small>{registration.leaderEmail} · {registration.leaderPhone}</small></td>
+          <td>{registration.track || '—'}</td><td>{registration.teamSize || registration.members.length || '—'}</td>
+          <td>{registration.timestamp || '—'}{registration.pptLink && <small><a href={registration.pptLink} target="_blank" rel="noreferrer">View project deck</a></small>}</td>
+          <td><button className="payment-button" type="button" disabled={alreadyShortlisted || isSubmitting} onClick={() => void shortlistRegistration(registration, rowId)}>{alreadyShortlisted ? 'Shortlisted' : isSubmitting ? 'Shortlisting…' : 'Shortlist Team'}</button></td>
+        </tr>
+      })}
+      {filteredRegistrations.length === 0 && <tr><td className="payment-table__empty" colSpan={6}>{registrationError ? 'Registration sheet is unavailable.' : 'No registrations match this search.'}</td></tr>}
+    </tbody></table></div>
+  </section>
+
   const exportPaid = () => {
     const paid = teams.filter((team) => team.paymentStatus === 'PAID')
     const rows = [['Team ID', 'Team Name', 'College', 'House / Track', 'Leader', 'Email', 'Phone', 'Payment Provider', 'Payment ID', 'Order / Request ID', 'Paid At'], ...paid.map((team) => [team.id, team.teamName, team.collegeName, team.houseTrack, team.leaderName, team.leaderEmail, team.leaderPhone, team.paymentProvider || 'razorpay', team.paymentId || team.razorpayPaymentId, team.orderId || team.razorpayOrderId, team.paidAt])]
@@ -238,28 +287,6 @@ export default function PaymentAdminPage() {
             </form>
           </div>}
         </section>
-        <section className="payment-team-list" aria-labelledby="registrations-title">
-          <div className="payment-team-list__heading"><h2 id="registrations-title">Registered Teams (Google Sheet)</h2><span>{registrations.length} registration{registrations.length === 1 ? '' : 's'}</span></div>
-          {registrationError && <p className="payment-alert" role="alert">{registrationError}</p>}
-          <label className="payment-search"><Search size={16} aria-hidden="true" /><input aria-label="Search registered teams" placeholder="Search registered team, leader, college or track" value={registrationSearch} onChange={(event) => setRegistrationSearch(event.target.value)} /></label>
-          <div className="payment-table-scroll"><table className="payment-table"><thead><tr><th>Team</th><th>Leader</th><th>Track</th><th>Size</th><th>Registered</th><th>Action</th></tr></thead><tbody>
-            {filteredRegistrations.map((registration, index) => {
-              const existing = teams.find((team) => team.leaderEmail.toLowerCase() === registration.leaderEmail.toLowerCase())
-              return <tr key={`${registration.leaderEmail}-${registration.teamName}-${registration.timestamp}-${index}`}>
-                <td><strong>{registration.teamName || 'Unnamed team'}</strong><small>{registration.collegeName}</small></td>
-                <td>{registration.leaderName}<small>{registration.leaderEmail} · {registration.leaderPhone}</small></td>
-                <td>{registration.track || '—'}</td><td>{registration.teamSize || registration.members.length || '—'}</td>
-                <td>{registration.timestamp || '—'}{registration.pptLink && <small><a href={registration.pptLink} target="_blank" rel="noreferrer">View project deck</a></small>}</td>
-                <td><button className="payment-button payment-button--secondary" type="button" disabled={busy || Boolean(existing) || !registration.teamName || !registration.leaderEmail || !registration.track} onClick={() => void runAction(async () => {
-                  const result = await api<{ team: Team; emailSent: boolean; emailError?: string }>('/api/admin/shortlist', { method: 'POST', body: JSON.stringify(registration) })
-                  setTeams((current) => [result.team, ...current]);
-                  setMessage(result.emailSent ? `${registration.teamName} shortlisted and invitation emailed to ${registration.leaderEmail}.` : result.emailError || `${registration.teamName} shortlisted; invitation email needs a resend.`)
-                })}>{existing ? 'Shortlisted' : 'Shortlist Team'}</button></td>
-              </tr>
-            })}
-            {filteredRegistrations.length === 0 && <tr><td className="payment-table__empty" colSpan={6}>{registrationError ? 'Registration sheet is unavailable.' : 'No registrations match this search.'}</td></tr>}
-          </tbody></table></div>
-        </section>
         {error && <p className="payment-alert" role="alert">{error}</p>}
         {message && <p className="payment-notice" role="status">{message}</p>}
         <section className="payment-team-list" aria-labelledby="shortlisted-table-title">
@@ -284,6 +311,7 @@ export default function PaymentAdminPage() {
             {filteredTeams.length === 0 && <tr><td className="payment-table__empty" colSpan={7}>No shortlisted teams match this filter. Add a team or import a CSV to begin.</td></tr>}
           </tbody></table></div>
         </section>
+        {registrationSection}
         <button className="payment-logout" type="button" onClick={() => { setSession(''); setTeams([]); setError('') }}>Sign out</button>
       </div>}
       {error && !session && <p className="payment-alert" role="alert">{error}</p>}
