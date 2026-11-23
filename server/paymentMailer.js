@@ -73,13 +73,25 @@ function receiptRows(receipt) {
 }
 
 export async function sendShortlistEmail(team) {
-  const link = `${publicSiteUrl()}/payment?token=${encodeURIComponent(team.token)}`
-  const html = emailFrame('Your coven has been shortlisted', `<p>Dear ${escapeHtml(team.leaderName)},</p><p>${escapeHtml(team.teamName)} has been shortlisted for HackWarts 2026. Use your private payment link to verify your team details and complete the ₹499 registration payment.</p><p><a href="${escapeHtml(link)}" style="display:inline-block;padding:12px 18px;background:#c9a15b;color:#080d17;text-decoration:none;font-weight:bold">Open shortlisted payment portal</a></p><p>If you were not expecting this message, contact the event organizers using a verified official channel.</p>`)
+  const link = process.env.RAZORPAY_PAYMENT_LINK || 'https://rzp.io/l/hackwarts-2026'
+  const html = emailFrame('Your coven has been shortlisted', `<p>Dear ${escapeHtml(team.leaderName)},</p><p>Your team <strong>${escapeHtml(team.teamName)}</strong> (Team ID: <strong>${escapeHtml(team.id)}</strong>) has been shortlisted for the ${escapeHtml(team.houseTrack)} track at HackWarts 2026.</p><p>Use the secure Razorpay link below to pay the ₹499 registration fee. On checkout, enter your exact Team Name, Team ID, registered email address (${escapeHtml(team.leaderEmail)}), and phone number (${escapeHtml(team.leaderPhone)}). The organizing team will use these details to verify your payment and send your final confirmation email.</p><p><a href="${escapeHtml(link)}" style="display:inline-block;padding:12px 18px;background:#c9a15b;color:#080d17;text-decoration:none;font-weight:bold">Pay ₹499 with Razorpay</a></p><p>If you were not expecting this message, contact the event organizers using a verified official channel.</p>`)
   const transporter = createTransporter()
   return transporter.sendMail({
     from: process.env.SMTP_FROM || process.env.SMTP_USER,
     to: team.leaderEmail,
     subject: `HackWarts 2026 shortlist invitation — ${team.teamName}`,
+    html,
+  })
+}
+
+export async function sendManualPaymentConfirmationEmail(team) {
+  if (team.paymentStatus !== 'PAID' || !team.paymentId) throw new Error('A paid team with a verified Razorpay transaction ID is required.')
+  const html = emailFrame('Finale confirmation — your place is secured', `<p>Dear ${escapeHtml(team.leaderName)},</p><p>Your team <strong>${escapeHtml(team.teamName)}</strong> (Team ID: <strong>${escapeHtml(team.id)}</strong>) is confirmed for HackWarts 2026.</p><table style="width:100%;border-collapse:collapse;background:#0a111c"><tr><th align="left" style="padding:9px;border-bottom:1px solid #403a2c;color:#d9bd77">Track</th><td style="padding:9px;border-bottom:1px solid #403a2c">${escapeHtml(team.houseTrack)}</td></tr><tr><th align="left" style="padding:9px;border-bottom:1px solid #403a2c;color:#d9bd77">Amount Paid</th><td style="padding:9px;border-bottom:1px solid #403a2c">₹499</td></tr><tr><th align="left" style="padding:9px;border-bottom:1px solid #403a2c;color:#d9bd77">Razorpay Transaction ID</th><td style="padding:9px;border-bottom:1px solid #403a2c">${escapeHtml(team.paymentId)}</td></tr></table><p><strong>Event:</strong> November 25 &amp; 26, 2026. Reporting is at 9:00 AM on November 25 at Sri Siddhartha School of Engineering (SSSE), Tumkur, Karnataka.</p><p><strong>Check-in:</strong> Please carry your college ID cards, laptops, and this confirmation email.</p><p><strong>Student coordinators</strong><br>Akhil Reddy S — +91 9364086869<br>Mohammed Zain — +91 7019031907<br>Chandana R — +91 6360943289</p>`)
+  const transporter = createTransporter()
+  return transporter.sendMail({
+    from: process.env.SMTP_FROM || process.env.SMTP_USER,
+    to: team.leaderEmail,
+    subject: `HackWarts 2026 finale confirmation — ${team.teamName}`,
     html,
   })
 }

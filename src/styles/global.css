@@ -1065,6 +1065,11 @@ a { color: inherit; }
 .payment-table td small { display: block; margin-top: .22rem; color: #9b968a; }
 .payment-row-actions { display: flex; flex-wrap: wrap; gap: .35rem; }
 .payment-row-actions button { display: inline-flex; min-height: 34px; align-items: center; gap: .3rem; border: 1px solid rgb(201 161 91 / 26%); padding: .35rem .45rem; background: #0e1724; color: #ddc78d; cursor: pointer; font: inherit; font-size: .68rem; }
+.payment-admin__payment-entry { display: grid; min-width: 150px; gap: .35rem; color: #d8c394; font-size: .68rem; }
+.payment-admin__payment-entry input { width: 100%; min-width: 0; border: 1px solid rgb(201 161 91 / 34%); border-radius: 2px; padding: .55rem .6rem; background: #080d17; color: #eee4d0; font: inherit; }
+.payment-admin__payment-entry input:focus { outline: 2px solid #c9a15b; outline-offset: 2px; }
+.payment-admin__payment-entry small { color: #aaa293; line-height: 1.4; }
+.payment-admin__payment-entry button:disabled, .payment-team-list .payment-button:disabled { cursor: not-allowed; opacity: .55; }
 .payment-table__empty { padding: 1.5rem !important; color: #aaa293; text-align: center !important; }
 .payment-logout { display: block; margin: 1rem 0 0 auto; border: 0; background: transparent; color: #aaa293; cursor: pointer; text-decoration: underline; }
 .payment-modal-backdrop { position: fixed; z-index: 120; inset: 0; display: grid; overflow-y: auto; place-items: center; padding: 1rem; background: rgb(0 0 0 / 78%); }

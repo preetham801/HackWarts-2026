@@ -23,7 +23,21 @@ type Team = {
   razorpayPaymentId: string
   paidAt: string
   confirmationEmailSent: boolean
+  confirmationEmailSentAt?: string
   receiptId?: string
+}
+
+type Registration = {
+  teamName: string
+  track: string
+  teamSize: string
+  leaderName: string
+  leaderEmail: string
+  leaderPhone: string
+  collegeName: string
+  members: string[]
+  pptLink: string
+  timestamp: string
 }
 
 type TeamInput = Omit<Team, 'id' | 'token' | 'amount' | 'shortlistEmailSent' | 'paymentStatus' | 'razorpayOrderId' | 'razorpayPaymentId' | 'paidAt' | 'confirmationEmailSent'>
@@ -74,7 +88,11 @@ export default function PaymentAdminPage() {
   const [password, setPassword] = useState('')
   const [session, setSession] = useState('')
   const [teams, setTeams] = useState<Team[]>([])
+  const [registrations, setRegistrations] = useState<Registration[]>([])
   const [search, setSearch] = useState('')
+  const [registrationSearch, setRegistrationSearch] = useState('')
+  const [registrationError, setRegistrationError] = useState('')
+  const [paymentIdDrafts, setPaymentIdDrafts] = useState<Record<string, string>>({})
   const [filter, setFilter] = useState<'ALL' | 'PENDING' | 'PAID'>('ALL')
   const [showImporter, setShowImporter] = useState(false)
   const [csvText, setCsvText] = useState('')
@@ -99,6 +117,17 @@ export default function PaymentAdminPage() {
     setTeams(result.teams as Team[])
   }
 
+  const refreshRegistrations = async (token = session) => {
+    setRegistrationError('')
+    try {
+      const response = await fetch('/api/admin/registrations', { headers: { Authorization: `Bearer ${token}` } })
+      const result = await readApiResponse<{ registrations: Registration[] }>(response)
+      setRegistrations(result.registrations)
+    } catch (registrationLoadError) {
+      setRegistrationError(registrationLoadError instanceof Error ? registrationLoadError.message : 'Could not load Round 1 registrations.')
+    }
+  }
+
   const signIn = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault(); setError(''); setBusy(true)
     try {
@@ -106,6 +135,7 @@ export default function PaymentAdminPage() {
       const result = await readApiResponse<{ token: string }>(response)
       setSession(result.token); setPassword('')
       await refreshTeams(result.token)
+      await refreshRegistrations(result.token)
     } catch (loginError) { setError(loginError instanceof Error ? loginError.message : 'Could not sign in.') }
     finally { setBusy(false) }
   }
@@ -157,6 +187,11 @@ export default function PaymentAdminPage() {
     return matchesFilter && text.includes(search.toLowerCase())
   }), [filter, search, teams])
 
+  const filteredRegistrations = useMemo(() => registrations.filter((registration) => {
+    const text = `${registration.teamName} ${registration.track} ${registration.leaderName} ${registration.leaderEmail} ${registration.leaderPhone} ${registration.collegeName}`.toLowerCase()
+    return text.includes(registrationSearch.toLowerCase())
+  }), [registrationSearch, registrations])
+
   const totalPaid = teams.filter((team) => team.paymentStatus === 'PAID').length
   const exportPaid = () => {
     const paid = teams.filter((team) => team.paymentStatus === 'PAID')
@@ -173,7 +208,7 @@ export default function PaymentAdminPage() {
         <input id="admin-password" type="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} required />
         <button className="payment-button" type="submit" disabled={busy}>{busy ? 'Signing in…' : 'Open organizer dashboard'}</button>
       </form> : <div className="payment-admin">
-        <div className="payment-admin__toolbar"><p><ShieldCheck size={17} aria-hidden="true" /> Private organizer dashboard</p><button className="payment-button payment-button--secondary" type="button" onClick={() => void runAction(() => refreshTeams())} disabled={busy}><RefreshCw size={15} aria-hidden="true" />Refresh</button></div>
+        <div className="payment-admin__toolbar"><p><ShieldCheck size={17} aria-hidden="true" /> Private organizer dashboard</p><button className="payment-button payment-button--secondary" type="button" onClick={() => void runAction(async () => { await refreshTeams(); await refreshRegistrations() })} disabled={busy}><RefreshCw size={15} aria-hidden="true" />Refresh</button></div>
         <div className="payment-kpis">
           <article><Users size={19} aria-hidden="true" /><span>Total shortlisted</span><strong>{teams.length}</strong></article>
           <article><Mail size={19} aria-hidden="true" /><span>Shortlist emails sent</span><strong>{teams.filter((team) => team.shortlistEmailSent).length}</strong></article>
@@ -203,12 +238,33 @@ export default function PaymentAdminPage() {
             </form>
           </div>}
         </section>
+        <section className="payment-team-list" aria-labelledby="registrations-title">
+          <div className="payment-team-list__heading"><h2 id="registrations-title">Registered Teams (Google Sheet)</h2><span>{registrations.length} registration{registrations.length === 1 ? '' : 's'}</span></div>
+          {registrationError && <p className="payment-alert" role="alert">{registrationError}</p>}
+          <label className="payment-search"><Search size={16} aria-hidden="true" /><input aria-label="Search registered teams" placeholder="Search registered team, leader, college or track" value={registrationSearch} onChange={(event) => setRegistrationSearch(event.target.value)} /></label>
+          <div className="payment-table-scroll"><table className="payment-table"><thead><tr><th>Team</th><th>Leader</th><th>Track</th><th>Size</th><th>Registered</th><th>Action</th></tr></thead><tbody>
+            {filteredRegistrations.map((registration, index) => {
+              const existing = teams.find((team) => team.leaderEmail.toLowerCase() === registration.leaderEmail.toLowerCase())
+              return <tr key={`${registration.leaderEmail}-${registration.teamName}-${registration.timestamp}-${index}`}>
+                <td><strong>{registration.teamName || 'Unnamed team'}</strong><small>{registration.collegeName}</small></td>
+                <td>{registration.leaderName}<small>{registration.leaderEmail} · {registration.leaderPhone}</small></td>
+                <td>{registration.track || '—'}</td><td>{registration.teamSize || registration.members.length || '—'}</td>
+                <td>{registration.timestamp || '—'}{registration.pptLink && <small><a href={registration.pptLink} target="_blank" rel="noreferrer">View project deck</a></small>}</td>
+                <td><button className="payment-button payment-button--secondary" type="button" disabled={busy || Boolean(existing) || !registration.teamName || !registration.leaderEmail || !registration.track} onClick={() => void runAction(async () => {
+                  const result = await api<{ teams: Team[] }>('/api/admin/teams', { method: 'POST', body: JSON.stringify({ teamName: registration.teamName, collegeName: registration.collegeName || 'Not provided', houseTrack: registration.track, leaderName: registration.leaderName, leaderEmail: registration.leaderEmail, leaderPhone: registration.leaderPhone, members: registration.members }) })
+                  setTeams((current) => [...result.teams, ...current]); setMessage(`${registration.teamName} added to the shortlist.`)
+                })}>{existing ? 'Already shortlisted' : 'Shortlist Team'}</button></td>
+              </tr>
+            })}
+            {filteredRegistrations.length === 0 && <tr><td className="payment-table__empty" colSpan={6}>{registrationError ? 'Registration sheet is unavailable.' : 'No registrations match this search.'}</td></tr>}
+          </tbody></table></div>
+        </section>
         {error && <p className="payment-alert" role="alert">{error}</p>}
         {message && <p className="payment-notice" role="status">{message}</p>}
         <section className="payment-team-list" aria-labelledby="shortlisted-table-title">
           <div className="payment-team-list__heading"><h2 id="shortlisted-table-title">Shortlisted teams</h2><button className="payment-button payment-button--secondary" type="button" onClick={exportPaid}><Download size={15} aria-hidden="true" />Export paid CSV</button></div>
           <div className="payment-team-list__filters"><label className="payment-search"><Search size={16} aria-hidden="true" /><input aria-label="Search teams" placeholder="Search team, leader, college or ID" value={search} onChange={(event) => setSearch(event.target.value)} /></label><label className="payment-filter">Status<select value={filter} onChange={(event) => setFilter(event.target.value as typeof filter)}><option value="ALL">All</option><option value="PENDING">Pending</option><option value="PAID">Paid</option></select></label></div>
-          <div className="payment-table-scroll"><table className="payment-table"><thead><tr><th>Team</th><th>Leader</th><th>Track</th><th>Status</th><th>Emails</th><th>Actions</th></tr></thead><tbody>
+          <div className="payment-table-scroll"><table className="payment-table"><thead><tr><th>Team</th><th>Leader</th><th>Track</th><th>Status</th><th>Emails</th><th>Actions</th><th>Payment verification</th></tr></thead><tbody>
             {filteredTeams.map((team) => <tr key={team.id}>
               <td><strong>{team.teamName}</strong><small>{team.id} · {team.collegeName}</small></td>
               <td>{team.leaderName}<small>{team.leaderEmail}</small></td>
@@ -218,10 +274,13 @@ export default function PaymentAdminPage() {
               <td><div className="payment-row-actions">
                 <button type="button" onClick={() => void runAction(async () => { await navigator.clipboard.writeText(`${window.location.origin}/payment?token=${team.token}`); setMessage('Private payment link copied.') })}><Copy size={14} aria-hidden="true" /><span>Copy link</span></button>
                 {team.paymentStatus === 'PENDING' && <button type="button" onClick={() => void runAction(async () => { const result = await api<{ team: Team }>('/api/admin/send-shortlist-email', { method: 'POST', body: JSON.stringify({ teamId: team.id }) }); setMessage(`Shortlist email sent to ${team.leaderEmail}.`); setTeams((current) => current.map((item) => item.id === team.id ? result.team : item)) })}><Mail size={14} aria-hidden="true" /><span>Send invite</span></button>}
-                {team.paymentStatus === 'PAID' && <><button type="button" onClick={() => setReceiptTeam(team)}><Printer size={14} aria-hidden="true" /><span>View receipt</span></button><button type="button" onClick={() => void runAction(async () => { await api('/api/admin/resend-confirmation', { method: 'POST', body: JSON.stringify({ teamId: team.id }) }); setMessage(`Receipt email resent to ${team.leaderEmail}.`); await refreshTeams() })}><RefreshCw size={14} aria-hidden="true" /><span>Resend receipt</span></button></>}
+                {team.paymentStatus === 'PAID' && <><button type="button" onClick={() => setReceiptTeam(team)}><Printer size={14} aria-hidden="true" /><span>View receipt</span></button><button type="button" onClick={() => void runAction(async () => { const result = await api<{ team: Team }>('/api/admin/shortlist/send-confirmation', { method: 'POST', body: JSON.stringify({ teamId: team.id }) }); setTeams((current) => current.map((item) => item.id === team.id ? result.team : item)); setMessage(`Confirmation email sent to ${team.leaderEmail}.`) })}><Mail size={14} aria-hidden="true" /><span>{team.confirmationEmailSentAt ? 'Resend Confirmation Email' : 'Send Confirmation Email'}</span></button><button type="button" onClick={() => void runAction(async () => { await api('/api/admin/resend-confirmation', { method: 'POST', body: JSON.stringify({ teamId: team.id }) }); setMessage(`Receipt email resent to ${team.leaderEmail}.`); await refreshTeams() })}><RefreshCw size={14} aria-hidden="true" /><span>Resend receipt</span></button></>}
               </div></td>
+              <td className="payment-admin__payment-cell">
+                <label className="payment-admin__payment-entry"><span>Razorpay Transaction ID</span><input value={paymentIdDrafts[team.id] ?? team.paymentId ?? team.razorpayPaymentId ?? ''} placeholder="pay_..." aria-label={`Razorpay Transaction ID for ${team.teamName}`} onChange={(event) => setPaymentIdDrafts((current) => ({ ...current, [team.id]: event.target.value }))} /><button type="button" className="payment-button payment-button--secondary" disabled={busy || !String(paymentIdDrafts[team.id] ?? team.paymentId ?? team.razorpayPaymentId ?? '').trim()} onClick={() => void runAction(async () => { const result = await api<{ team: Team }>('/api/admin/shortlist/mark-paid', { method: 'POST', body: JSON.stringify({ teamId: team.id, paymentId: String(paymentIdDrafts[team.id] ?? team.paymentId ?? team.razorpayPaymentId ?? '').trim() }) }); setTeams((current) => current.map((item) => item.id === team.id ? result.team : item)); setMessage(`${team.teamName} marked as paid.`) })}>{team.paymentStatus === 'PAID' ? 'Save Transaction ID' : 'Mark as Paid'}</button>{team.confirmationEmailSentAt && <small>Confirmation sent {new Date(team.confirmationEmailSentAt).toLocaleString('en-IN')}</small>}</label>
+              </td>
             </tr>)}
-            {filteredTeams.length === 0 && <tr><td className="payment-table__empty" colSpan={6}>No shortlisted teams match this filter. Add a team or import a CSV to begin.</td></tr>}
+            {filteredTeams.length === 0 && <tr><td className="payment-table__empty" colSpan={7}>No shortlisted teams match this filter. Add a team or import a CSV to begin.</td></tr>}
           </tbody></table></div>
         </section>
         <button className="payment-logout" type="button" onClick={() => { setSession(''); setTeams([]); setError('') }}>Sign out</button>

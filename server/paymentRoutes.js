@@ -4,6 +4,7 @@ import Razorpay from 'razorpay'
 import {
   buildReceipt,
   sendConfirmationEmail,
+  sendManualPaymentConfirmationEmail,
   sendShortlistEmail,
 } from './paymentMailer.js'
 import { listShortlistedTeams, saveShortlistedTeam, saveShortlistedTeams } from './shortlistedTeamsStore.js'
@@ -14,6 +15,41 @@ const loginAttempts = new Map()
 const loginWindowMs = 15 * 60 * 1000
 const maxLoginAttempts = 8
 const confirmationTasks = new Map()
+
+function headerKey(value) {
+  return String(value ?? '').toLowerCase().replace(/[^a-z0-9]/g, '')
+}
+
+function normalizeRegistration(row, headers = []) {
+  const record = Array.isArray(row)
+    ? Object.fromEntries(headers.map((header, index) => [header, row[index]]))
+    : row && typeof row === 'object' ? row : {}
+  const values = new Map(Object.entries(record).map(([key, value]) => [headerKey(key), value]))
+  const pick = (...keys) => {
+    for (const key of keys) {
+      const value = values.get(headerKey(key))
+      if (value !== undefined && value !== null && String(value).trim()) return String(value).trim()
+    }
+    return ''
+  }
+  const members = pick('members', 'membernames').split(/[;,|]/).map((name) => name.trim()).filter(Boolean)
+  for (let index = 1; index <= 4; index++) {
+    const member = pick(`member${index}`, `team member ${index}`)
+    if (member && !members.includes(member)) members.push(member)
+  }
+  return {
+    teamName: pick('teamName', 'team'),
+    track: pick('track', 'trackProblemStatement', 'problemStatementTrack', 'problemStatement', 'selectedTrack', 'house', 'problemDomain'),
+    teamSize: pick('teamSize', 'memberCount', 'teamMembers'),
+    leaderName: pick('leaderName', 'teamLeader', 'name'),
+    leaderEmail: pick('leaderEmail', 'email', 'emailAddress'),
+    leaderPhone: pick('leaderPhone', 'phone', 'phoneNumber', 'mobile'),
+    collegeName: pick('college', 'collegeName', 'institution'),
+    members,
+    pptLink: pick('pptLink', 'pptUrl', 'projectPpt', 'presentationLink'),
+    timestamp: pick('timestamp', 'submittedAt', 'registrationTimestamp', 'date'),
+  }
+}
 
 function publicTeam(team) {
   const result = {
@@ -449,6 +485,35 @@ router.get('/api/admin/teams', requireAdmin, async (_request, response) => {
   response.json({ teams })
 })
 
+router.get('/api/admin/registrations', requireAdmin, async (_request, response) => {
+  const scriptUrl = process.env.APPS_SCRIPT_URL
+  const secret = process.env.APPS_SCRIPT_STORAGE_SECRET
+  if (!scriptUrl || !secret) {
+    response.status(503).json({ error: 'Google Sheets registration access is not configured on the server.' })
+    return
+  }
+  const sheetResponse = await fetch(scriptUrl, {
+    method: 'POST',
+    redirect: 'follow',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'registrations_list', secret }),
+    signal: AbortSignal.timeout(12000),
+  })
+  const raw = await sheetResponse.text()
+  let data
+  try { data = JSON.parse(raw) } catch {
+    response.status(502).json({ error: 'Google Sheets returned an unreadable registrations response. Deploy the updated Apps Script.' })
+    return
+  }
+  if (!sheetResponse.ok || data?.success !== true) {
+    response.status(502).json({ error: data?.error || 'Google Sheets could not return Round 1 registrations.' })
+    return
+  }
+  const headers = Array.isArray(data.headers) ? data.headers : []
+  const rows = Array.isArray(data.rows) ? data.rows : Array.isArray(data.registrations) ? data.registrations : []
+  response.json({ registrations: rows.map((row) => normalizeRegistration(row, headers)) })
+})
+
 router.post('/api/admin/teams', requireAdmin, async (request, response) => {
   const input = Array.isArray(request.body?.teams) ? request.body.teams : [request.body]
   if (input.length === 0 || input.length > 500) {
@@ -485,6 +550,48 @@ router.post('/api/admin/send-shortlist-email', requireAdmin, async (request, res
   await sendShortlistEmail(team)
   team.shortlistEmailSent = true
   team.shortlistEmailSentAt = new Date().toISOString()
+  await saveShortlistedTeam(team)
+  response.json({ success: true, team })
+})
+
+router.post('/api/admin/shortlist/mark-paid', requireAdmin, async (request, response) => {
+  const teamId = String(request.body?.teamId || '').trim()
+  const paymentId = String(request.body?.paymentId || '').trim()
+  if (!teamId || !/^pay_[A-Za-z0-9]+$/.test(paymentId)) {
+    response.status(400).json({ error: 'Enter the team ID and a valid Razorpay transaction ID (pay_…).'} )
+    return
+  }
+  const team = (await listShortlistedTeams()).find((entry) => entry.id === teamId)
+  if (!team) {
+    response.status(404).json({ error: 'Shortlisted team not found.' })
+    return
+  }
+  const changedPaymentId = team.paymentId !== paymentId
+  team.paymentStatus = 'PAID'
+  team.paymentProvider = 'razorpay'
+  team.paymentId = paymentId
+  team.razorpayPaymentId = paymentId
+  team.orderId ||= team.razorpayOrderId || ''
+  team.paidAt = new Date().toISOString()
+  if (changedPaymentId) {
+    team.receiptId = `HW-${paymentId.slice(-10).toUpperCase()}`
+    team.confirmationEmailSentAt = ''
+  } else {
+    team.receiptId ||= `HW-${paymentId.slice(-10).toUpperCase()}`
+  }
+  await saveShortlistedTeam(team)
+  response.json({ success: true, team })
+})
+
+router.post('/api/admin/shortlist/send-confirmation', requireAdmin, async (request, response) => {
+  const team = (await listShortlistedTeams()).find((entry) => entry.id === request.body?.teamId)
+  if (!team || team.paymentStatus !== 'PAID' || !team.paymentId) {
+    response.status(409).json({ error: 'Mark this team as paid with its Razorpay transaction ID before sending confirmation.' })
+    return
+  }
+  await sendManualPaymentConfirmationEmail(team)
+  team.confirmationEmailSent = true
+  team.confirmationEmailSentAt = new Date().toISOString()
   await saveShortlistedTeam(team)
   response.json({ success: true, team })
 })

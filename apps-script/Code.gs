@@ -4,6 +4,9 @@ function doPost(event) {
   try {
     const data = JSON.parse(event.postData.contents);
     if (data.action) {
+      if (data.action === 'registrations_list') {
+        return handleRegistrationsListAction_(data);
+      }
       if (['shortlist_list', 'shortlist_upsert', 'shortlist_bulk_upsert'].includes(data.action)) {
         return handleShortlistStorageAction_(data);
       }

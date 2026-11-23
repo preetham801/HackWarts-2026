@@ -24,7 +24,7 @@ function handleShortlistStorageAction_(data) {
   }
 
   const expectedSecret = PropertiesService.getScriptProperties().getProperty('SHORTLIST_STORAGE_SECRET');
-  if (!expectedSecret || data.storageSecret !== expectedSecret) {
+  if (!expectedSecret || (data.storageSecret || data.secret) !== expectedSecret) {
     return shortlistJson_({ success: false, error: 'Shortlist storage authorization is not configured.' });
   }
 
@@ -101,6 +101,29 @@ function handleShortlistStorageAction_(data) {
   } finally {
     lock.releaseLock();
   }
+}
+
+function handleRegistrationsListAction_(data) {
+  const expectedSecret = PropertiesService.getScriptProperties().getProperty('SHORTLIST_STORAGE_SECRET');
+  if (!expectedSecret || data.secret !== expectedSecret) {
+    return shortlistJson_({ success: false, error: 'Registration list authorization is not configured.' });
+  }
+  const properties = PropertiesService.getScriptProperties();
+  const spreadsheetId = properties.getProperty('SHORTLIST_SPREADSHEET_ID');
+  const spreadsheet = spreadsheetId
+    ? SpreadsheetApp.openById(spreadsheetId)
+    : SpreadsheetApp.getActiveSpreadsheet();
+  if (!spreadsheet) return shortlistJson_({ success: false, error: 'The registration spreadsheet is not configured.' });
+  const sheet = spreadsheet.getSheetByName('Registrations') || spreadsheet.getSheets()[0];
+  if (!sheet || sheet.getLastRow() < 2) return shortlistJson_({ success: true, headers: [], rows: [] });
+  const values = sheet.getDataRange().getDisplayValues();
+  const known = values[0].map((cell) => String(cell).toLowerCase().replace(/[^a-z0-9]/g, ''));
+  const hasHeader = known.some((cell) => ['teamname', 'leadername', 'email', 'team'].includes(cell));
+  const headers = hasHeader
+    ? values[0]
+    : ['Timestamp', 'Team Name', 'Leader Name', 'Leader Email', 'Leader Phone', 'College', 'Team Size', 'Member 1', 'Member 2', 'Member 3', 'Member 4', 'Track', 'PPT Link', 'Status'];
+  const rows = values.slice(hasHeader ? 1 : 0).filter((row) => row.some((cell) => String(cell).trim()));
+  return shortlistJson_({ success: true, headers, rows });
 }
 
 function shortlistJson_(payload) {
