@@ -39,10 +39,10 @@ function normalizeRegistration(row, headers = []) {
   }
   return {
     teamName: pick('teamName', 'team'),
-    track: pick('track', 'trackProblemStatement', 'problemStatementTrack', 'problemStatement', 'selectedTrack', 'house', 'problemDomain'),
-    teamSize: pick('teamSize', 'memberCount', 'teamMembers'),
+    track: pick('selectedTrack', 'track', 'house', 'trackProblemStatement', 'problemStatementTrack', 'problemStatement', 'problemDomain'),
+    teamSize: pick('teamSize', 'size', 'memberCount', 'teamMembers'),
     leaderName: pick('leaderName', 'teamLeader', 'name'),
-    leaderEmail: pick('leaderEmail', 'email', 'emailAddress'),
+    leaderEmail: pick('leaderEmail', 'email', 'emailAddress', 'registeredEmail'),
     leaderPhone: pick('leaderPhone', 'phone', 'phoneNumber', 'mobile'),
     collegeName: pick('college', 'collegeName', 'institution'),
     members,
@@ -511,7 +511,44 @@ router.get('/api/admin/registrations', requireAdmin, async (_request, response) 
   }
   const headers = Array.isArray(data.headers) ? data.headers : []
   const rows = Array.isArray(data.rows) ? data.rows : Array.isArray(data.registrations) ? data.registrations : []
-  response.json({ registrations: rows.map((row) => normalizeRegistration(row, headers)) })
+  const registrations = rows.map((row) => normalizeRegistration(row, headers))
+    .filter((row) => row.teamName || row.leaderEmail)
+  response.json({ registrations })
+})
+
+router.post('/api/admin/shortlist', requireAdmin, async (request, response) => {
+  const registration = normalizeRegistration(request.body)
+  let team
+  try {
+    team = normalizeTeam({
+      teamName: registration.teamName,
+      collegeName: registration.collegeName,
+      houseTrack: registration.track,
+      leaderName: registration.leaderName,
+      leaderEmail: registration.leaderEmail,
+      leaderPhone: registration.leaderPhone,
+      members: registration.members,
+    })
+  } catch (error) {
+    response.status(error.status || 400).json({ error: error.message })
+    return
+  }
+  const existing = (await listShortlistedTeams()).find((entry) => entry.leaderEmail.toLowerCase() === team.leaderEmail.toLowerCase())
+  if (existing) {
+    response.status(409).json({ error: 'This registered leader is already on the shortlist.', team: existing })
+    return
+  }
+  await saveShortlistedTeam(team)
+  try {
+    await sendShortlistEmail(team)
+    team.shortlistEmailSent = true
+    team.shortlistEmailSentAt = new Date().toISOString()
+    await saveShortlistedTeam(team)
+    response.status(201).json({ success: true, team, emailSent: true })
+  } catch (error) {
+    console.error('Shortlist invitation email was not sent:', error.message)
+    response.status(201).json({ success: true, team, emailSent: false, emailError: 'Team was shortlisted, but the invitation email could not be sent. Use Resend Shortlist Email.' })
+  }
 })
 
 router.post('/api/admin/teams', requireAdmin, async (request, response) => {
@@ -566,6 +603,7 @@ router.post('/api/admin/shortlist/mark-paid', requireAdmin, async (request, resp
     response.status(404).json({ error: 'Shortlisted team not found.' })
     return
   }
+  const wasPending = team.paymentStatus !== 'PAID'
   const changedPaymentId = team.paymentId !== paymentId
   team.paymentStatus = 'PAID'
   team.paymentProvider = 'razorpay'
@@ -580,7 +618,20 @@ router.post('/api/admin/shortlist/mark-paid', requireAdmin, async (request, resp
     team.receiptId ||= `HW-${paymentId.slice(-10).toUpperCase()}`
   }
   await saveShortlistedTeam(team)
-  response.json({ success: true, team })
+  if (!wasPending && !changedPaymentId && team.confirmationEmailSentAt) {
+    response.json({ success: true, team, emailSent: true, alreadySent: true })
+    return
+  }
+  try {
+    await sendManualPaymentConfirmationEmail(team)
+    team.confirmationEmailSent = true
+    team.confirmationEmailSentAt = new Date().toISOString()
+    await saveShortlistedTeam(team)
+    response.json({ success: true, team, emailSent: true })
+  } catch (error) {
+    console.error('Manual payment confirmation email was not sent:', error.message)
+    response.json({ success: true, team, emailSent: false, emailError: 'Payment was recorded, but the confirmation email could not be sent. Use Resend Confirmation Email.' })
+  }
 })
 
 router.post('/api/admin/shortlist/send-confirmation', requireAdmin, async (request, response) => {
