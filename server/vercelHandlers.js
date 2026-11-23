@@ -24,17 +24,23 @@ export function createApiHandler(app, endpoint) {
 
 export function createApiCatchAllHandler(app) {
   return function handler(request, response) {
-    const pathParameter = request.query?.path
+    const parsedUrl = new URL(request.url || '/', 'http://localhost')
+    const pathParameter = request.query?.path ?? (parsedUrl.searchParams.has('path') ? parsedUrl.searchParams.getAll('path') : undefined)
     if (pathParameter !== undefined) {
       const segments = (Array.isArray(pathParameter) ? pathParameter : String(pathParameter).split('/'))
         .map((segment) => String(segment).replace(/^\/+|\/+$/g, ''))
         .filter(Boolean)
       const endpoint = segments.length ? `/api/${segments.join('/')}` : '/api'
-      request.url = `${endpoint}${requestQuery(request, true)}`
+      const query = new URLSearchParams(parsedUrl.search)
+      query.delete('path')
+      for (const [key, value] of Object.entries(request.query || {})) {
+        if (key === 'path' || value == null || parsedUrl.searchParams.has(key)) continue
+        for (const item of Array.isArray(value) ? value : [value]) query.append(key, String(item))
+      }
+      const queryString = query.toString()
+      request.url = `${endpoint}${queryString ? `?${queryString}` : ''}`
     } else {
-      const requestUrl = request.url || '/'
-      const queryIndex = requestUrl.indexOf('?')
-      const pathname = queryIndex >= 0 ? requestUrl.slice(0, queryIndex) : requestUrl
+      const pathname = parsedUrl.pathname
       const endpoint = pathname.startsWith('/api/') || pathname === '/api'
         ? pathname
         : `/api${pathname.startsWith('/') ? pathname : `/${pathname}`}`
