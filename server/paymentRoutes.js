@@ -40,6 +40,16 @@ function normalizeRegistration(row, headers = []) {
     }
     return ''
   }
+  const pickLeaderName = () => {
+    const exact = pick('leaderName', 'teamLeader', 'captain')
+    if (exact) return exact
+    for (const [key, value] of values) {
+      const isNameField = key.includes('leadername') || key.includes('teamleader') || key.includes('captain') || (key.includes('name') && !key.includes('team'))
+      if (isNameField && value !== undefined && value !== null && String(value).trim()) return String(value).trim()
+    }
+    const email = pick('leaderEmail', 'email', 'emailAddress', 'registeredEmail')
+    return email.split('@')[0]?.trim() || 'Team Leader'
+  }
   const members = pick('members', 'membernames').split(/[;,|]/).map((name) => name.trim()).filter(Boolean)
   for (let index = 1; index <= 4; index++) {
     const member = pick(`member${index}`, `team member ${index}`)
@@ -49,10 +59,10 @@ function normalizeRegistration(row, headers = []) {
     teamName: pick('teamName', 'team'),
     track: pick('selectedTrack', 'track', 'house', 'trackProblemStatement', 'problemStatementTrack', 'problemStatement', 'problemDomain') || pickContaining('track', 'house') || 'Open Innovation',
     teamSize: pick('teamSize', 'size', 'memberCount', 'teamMembers'),
-    leaderName: pick('leaderName', 'teamLeader', 'name'),
+    leaderName: pickLeaderName(),
     leaderEmail: pick('leaderEmail', 'email', 'emailAddress', 'registeredEmail'),
-    leaderPhone: pick('leaderPhone', 'phone', 'phoneNumber', 'mobile'),
-    collegeName: pick('college', 'collegeName', 'institution') || 'Not specified',
+    leaderPhone: pick('leaderPhone', 'phone', 'phoneNumber', 'mobile') || pickContaining('phone', 'mobile', 'contact', 'whatsapp') || 'Not provided',
+    collegeName: pick('college', 'collegeName', 'institution', 'university') || pickContaining('college', 'institution', 'university') || 'Not specified',
     members,
     pptLink: pick('pptLink', 'pptUrl', 'projectPpt', 'presentationLink'),
     timestamp: pick('timestamp', 'submittedAt', 'registrationTimestamp', 'date'),
@@ -272,20 +282,24 @@ async function findTeamForOrder(body) {
   return teams.find((team) => team.id === body.teamId && team.leaderEmail.toLowerCase() === String(body.leaderEmail).toLowerCase())
 }
 
-function normalizeTeam(input) {
-  const fields = ['teamName', 'collegeName', 'leaderName', 'leaderEmail', 'leaderPhone', 'houseTrack']
+function normalizeTeam(input, { allowRegistrationDefaults = false } = {}) {
+  const fields = ['teamName', 'collegeName', 'leaderName', 'leaderEmail', 'houseTrack']
   if (!input || !fields.every((field) => typeof input[field] === 'string' && input[field].trim())) {
-    throw Object.assign(new Error('Team name, college, House Track, and leader contact details are required.'), { status: 400 })
+    throw Object.assign(new Error('Team name and leader email are required to shortlist a registration.'), { status: 400 })
   }
   const team = Object.fromEntries(fields.map((field) => [field, input[field].trim()]))
-  if (!tracks.has(team.houseTrack)) throw Object.assign(new Error('Choose one of the four approved House Tracks.'), { status: 400 })
+  team.leaderPhone = typeof input.leaderPhone === 'string' ? input.leaderPhone.trim() : ''
+  if (!allowRegistrationDefaults && !team.leaderPhone) {
+    throw Object.assign(new Error('Team name, college, House Track, and leader contact details are required.'), { status: 400 })
+  }
+  if (!tracks.has(team.houseTrack) && !allowRegistrationDefaults) throw Object.assign(new Error('Choose one of the four approved House Tracks.'), { status: 400 })
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(team.leaderEmail)) throw Object.assign(new Error('Enter a valid team leader email address.'), { status: 400 })
-  if (!/^[+\d()\s-]{8,20}$/.test(team.leaderPhone)) throw Object.assign(new Error('Enter a valid team leader phone number.'), { status: 400 })
+  if (team.leaderPhone && team.leaderPhone !== 'Not provided' && !/^[+\d()\s-]{8,20}$/.test(team.leaderPhone)) throw Object.assign(new Error('Enter a valid team leader phone number.'), { status: 400 })
   let members = input.members ?? []
   if (typeof members === 'string') members = members.split(/[;,]/)
   if (!Array.isArray(members)) throw Object.assign(new Error('Members must be supplied as a list of names.'), { status: 400 })
   members = members.map((name) => String(name).trim()).filter(Boolean)
-  if (members.length === 1 || members.length > 4) throw Object.assign(new Error('Provide no member list or between 2 and 4 member names.'), { status: 400 })
+  if (!allowRegistrationDefaults && (members.length === 1 || members.length > 4)) throw Object.assign(new Error('Provide no member list or between 2 and 4 member names.'), { status: 400 })
   return {
     id: `HW-${Date.now().toString(36).toUpperCase()}-${randomBytes(3).toString('hex').toUpperCase()}`,
     token: randomBytes(24).toString('base64url'),
@@ -526,17 +540,21 @@ router.get('/api/admin/registrations', requireAdmin, async (_request, response) 
 
 router.post('/api/admin/shortlist', requireAdmin, async (request, response) => {
   const registration = normalizeRegistration(request.body)
+  if (!registration.teamName || !registration.leaderEmail) {
+    response.status(400).json({ error: 'Team name and leader email are required to shortlist a registration.' })
+    return
+  }
   let team
   try {
     team = normalizeTeam({
       teamName: registration.teamName,
-      collegeName: registration.collegeName,
-      houseTrack: registration.track,
-      leaderName: registration.leaderName,
+      collegeName: registration.collegeName || 'Not specified',
+      houseTrack: registration.track || 'Open Innovation',
+      leaderName: registration.leaderName || registration.leaderEmail.split('@')[0] || 'Team Leader',
       leaderEmail: registration.leaderEmail,
-      leaderPhone: registration.leaderPhone,
+      leaderPhone: registration.leaderPhone === 'Not provided' ? '' : registration.leaderPhone || '',
       members: registration.members,
-    })
+    }, { allowRegistrationDefaults: true })
   } catch (error) {
     response.status(error.status || 400).json({ error: error.message })
     return

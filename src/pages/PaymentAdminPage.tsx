@@ -203,6 +203,10 @@ export default function PaymentAdminPage() {
         method: 'POST',
         body: JSON.stringify({
           ...registration,
+          teamName: registration.teamName?.trim(),
+          leaderEmail: registration.leaderEmail?.trim(),
+          leaderName: registration.leaderName?.trim() || registration.leaderEmail?.split('@')[0] || 'Team Leader',
+          leaderPhone: registration.leaderPhone?.trim() === 'Not provided' ? '' : registration.leaderPhone?.trim() || '',
           track: registration.track?.trim() || 'Open Innovation',
           collegeName: registration.collegeName?.trim() || 'Not specified',
         }),
