@@ -4,6 +4,7 @@ import { existsSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import paymentRoutes from './paymentRoutes.js'
+import { sendParticipationCertificateEmail } from './paymentMailer.js'
 
 const app = express()
 const maxPptBytes = 3 * 1024 * 1024
@@ -22,6 +23,89 @@ function hasExpectedFileSignature(buffer, extension) {
 
 app.use(express.json({ limit: '6mb' }))
 app.use(express.urlencoded({ extended: false }))
+
+const feedbackDomains = new Set(['AgriTech', 'Sustainability & Development', 'EdTech & FinTech', 'Health & Safety'])
+const feedbackRatings = [
+  'overallExperience',
+  'hackathonExperience',
+  'evaluationTransparency',
+  'venueFacilities',
+  'mentorSessionRating',
+  'mentorFeedbackUsefulness',
+  'evaluation1Rating',
+  'evaluation2Rating',
+  'evaluation3Rating',
+]
+
+app.post('/api/feedback', async (request, response) => {
+  const body = request.body ?? {}
+  const requiredText = ['participantName', 'teamName', 'leaderName', 'hearAbout']
+  if (!requiredText.every((key) => typeof body[key] === 'string' && body[key].trim())) {
+    response.status(400).json({ error: 'Participant name, team name, team leader name, and how you heard about the event are required.' })
+    return
+  }
+  if (typeof body.email !== 'string' || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(body.email.trim())) {
+    response.status(400).json({ error: 'Enter a valid participant email address.' })
+    return
+  }
+  if (!feedbackDomains.has(body.domain)) {
+    response.status(400).json({ error: 'Choose a valid HackWarts 2026 domain.' })
+    return
+  }
+  if (!feedbackRatings.every((key) => Number.isInteger(body[key]) && body[key] >= 1 && body[key] <= 5)) {
+    response.status(400).json({ error: 'Please provide a rating from 1 to 5 for every feedback question.' })
+    return
+  }
+  if (body.futureImprovements !== undefined && typeof body.futureImprovements !== 'string') {
+    response.status(400).json({ error: 'Future improvement feedback must be text.' })
+    return
+  }
+  const appsScriptUrl = process.env.APPS_SCRIPT_URL
+  if (!appsScriptUrl) {
+    response.status(503).json({ error: 'Feedback collection is not configured on the server.' })
+    return
+  }
+
+  const feedback = {
+    participantName: body.participantName.trim(),
+    email: body.email.trim(),
+    teamName: body.teamName.trim(),
+    leaderName: body.leaderName.trim(),
+    domain: body.domain,
+    hearAbout: body.hearAbout.trim(),
+    ...Object.fromEntries(feedbackRatings.map((key) => [key, body[key]])),
+    futureImprovements: typeof body.futureImprovements === 'string' ? body.futureImprovements.trim() : '',
+  }
+  let appsScriptResponse
+  let result
+  try {
+    appsScriptResponse = await fetch(appsScriptUrl, {
+      method: 'POST',
+      redirect: 'follow',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'submit_feedback', secret: process.env.APPS_SCRIPT_STORAGE_SECRET || '', ...feedback }),
+      signal: AbortSignal.timeout(15000),
+    })
+    result = await appsScriptResponse.json()
+  } catch {
+    response.status(502).json({ error: 'Could not reach the feedback verification service. Please try again.' })
+    return
+  }
+  if (!appsScriptResponse.ok || result?.success !== true) {
+    const error = typeof result?.error === 'string' ? result.error : 'Feedback could not be verified.'
+    response.status(/team name|paid roster|confirmed/i.test(error) ? 400 : 502).json({ error })
+    return
+  }
+
+  try {
+    await sendParticipationCertificateEmail(feedback)
+  } catch (error) {
+    console.error('Feedback certificate email delivery failed:', error.message)
+    response.status(502).json({ error: 'Your feedback was recorded, but we could not email the certificate. Please contact the organizers.' })
+    return
+  }
+  response.json({ success: true, participantName: feedback.participantName, teamName: feedback.teamName })
+})
 
 app.post('/api/register', async (request, response) => {
   const {

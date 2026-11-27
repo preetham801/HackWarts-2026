@@ -1,4 +1,10 @@
 import nodemailer from 'nodemailer'
+import { readFile } from 'node:fs/promises'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
+import { PDFDocument, rgb, StandardFonts } from 'pdf-lib'
+
+const certificateTemplatePath = path.join(path.dirname(fileURLToPath(import.meta.url)), 'assets', 'Hackwarts-2026 CERTIFICATE.pdf')
 
 function escapeHtml(value) {
   return String(value ?? '').replace(/[&<>"']/g, (character) => ({
@@ -93,6 +99,56 @@ export async function sendManualPaymentConfirmationEmail(team) {
     to: team.leaderEmail,
     subject: `HackWarts 2026 finale confirmation — ${team.teamName}`,
     html,
+  })
+}
+
+export async function generateCertificatePdf(participantName) {
+  const template = await readFile(certificateTemplatePath)
+  const pdf = await PDFDocument.load(template)
+  const page = pdf.getPages()[0]
+  if (!page) throw new Error('The certificate template has no pages.')
+  const font = await pdf.embedFont(StandardFonts.TimesRomanBold)
+  const name = String(participantName ?? '').trim()
+  const maxWidth = 520
+  const fontSize = Math.min(24, (maxWidth / Math.max(font.widthOfTextAtSize(name, 24), 1)) * 24)
+  page.drawRectangle({
+    x: 68,
+    y: 298,
+    width: 240,
+    height: 36,
+    color: rgb(0.976, 0.961, 0.922),
+  })
+  page.drawText(name, {
+    x: 70.56,
+    y: 305.5,
+    size: fontSize,
+    font,
+    color: rgb(0.11, 0.14, 0.21),
+  })
+  return Buffer.from(await pdf.save())
+}
+
+export async function sendParticipationCertificateEmail({ participantName, email, teamName, domain }) {
+  const certificate = await generateCertificatePdf(participantName)
+  const safeName = String(participantName || 'Participant')
+    .normalize('NFKD')
+    .replace(/[^a-zA-Z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '') || 'Participant'
+  const html = emailFrame(
+    'Thank you for your feedback',
+    `<p>Dear ${escapeHtml(participantName)},</p><p>Thank you for sharing feedback about HackWarts 2026. Your Certificate of Participation is attached to this email.</p><p><strong>Team:</strong> ${escapeHtml(teamName)}<br><strong>Domain:</strong> ${escapeHtml(domain)}</p><p>We appreciate your contribution to the event and your thoughts for future editions.</p>`,
+  )
+  const transporter = createTransporter()
+  return transporter.sendMail({
+    from: process.env.SMTP_FROM || process.env.SMTP_USER,
+    to: email,
+    subject: `HackWarts 2026 Certificate of Participation — ${participantName}`,
+    html,
+    attachments: [{
+      filename: `HackWarts-2026-Certificate-${safeName}.pdf`,
+      content: certificate,
+      contentType: 'application/pdf',
+    }],
   })
 }
 

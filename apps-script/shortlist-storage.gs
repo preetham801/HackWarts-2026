@@ -126,6 +126,59 @@ function handleRegistrationsListAction_(data) {
   return shortlistJson_({ success: true, headers, rows });
 }
 
+function handleFeedbackSubmission_(data) {
+  const expectedSecret = PropertiesService.getScriptProperties().getProperty('SHORTLIST_STORAGE_SECRET');
+  if (!expectedSecret || data.secret !== expectedSecret) {
+    return shortlistJson_({ success: false, error: 'Feedback service authorization is not configured.' });
+  }
+  const properties = PropertiesService.getScriptProperties();
+  const spreadsheetId = properties.getProperty('SHORTLIST_SPREADSHEET_ID');
+  const spreadsheet = spreadsheetId
+    ? SpreadsheetApp.openById(spreadsheetId)
+    : SpreadsheetApp.getActiveSpreadsheet();
+  const roster = spreadsheet && spreadsheet.getSheetByName('ShortlistedTeams');
+  if (!roster || roster.getLastRow() < 2) {
+    return shortlistJson_({ success: false, error: 'That team name is not in the confirmed paid roster.' });
+  }
+
+  const normalizedTeamName = String(data.teamName || '').trim().replace(/\s+/g, ' ').toLowerCase();
+  const records = roster.getRange(2, 1, roster.getLastRow() - 1, 2).getValues();
+  const paidTeam = records.some((row) => {
+    try {
+      const team = JSON.parse(row[1]);
+      return team && team.paymentStatus === 'PAID'
+        && String(team.teamName || '').trim().replace(/\s+/g, ' ').toLowerCase() === normalizedTeamName;
+    } catch (_error) {
+      return false;
+    }
+  });
+  if (!paidTeam) {
+    return shortlistJson_({ success: false, error: 'That team name is not in the confirmed paid roster.' });
+  }
+
+  const sheet = spreadsheet.getSheetByName('Feedback') || spreadsheet.insertSheet('Feedback');
+  if (sheet.getLastRow() === 0) {
+    sheet.appendRow([
+      'Timestamp', 'Participant Name', 'Participant Email', 'Team Name', 'Team Leader Name', 'Domain', 'How Heard',
+      'Overall Experience', 'Hackathon Experience', 'Evaluation Transparency', 'Venue Facilities', 'Mentor Session',
+      'Mentor Feedback Usefulness', 'Evaluation 1', 'Evaluation 2', 'Evaluation 3', 'Future Improvements',
+    ]);
+  }
+  const lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    sheet.appendRow([
+      new Date(), data.participantName || '', data.email || '', data.teamName || '', data.leaderName || '', data.domain || '', data.hearAbout || '',
+      data.overallExperience || '', data.hackathonExperience || '', data.evaluationTransparency || '', data.venueFacilities || '',
+      data.mentorSessionRating || '', data.mentorFeedbackUsefulness || '', data.evaluation1Rating || '', data.evaluation2Rating || '',
+      data.evaluation3Rating || '', data.futureImprovements || '',
+    ]);
+  } finally {
+    lock.releaseLock();
+  }
+  return shortlistJson_({ success: true });
+}
+
 function shortlistJson_(payload) {
   return ContentService
     .createTextOutput(JSON.stringify(payload))

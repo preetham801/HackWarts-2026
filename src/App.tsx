@@ -17,6 +17,7 @@ import Register from './pages/Register'
 import { HouseDetailPage } from './components/HouseDetailPage'
 import PaymentPage from './pages/PaymentPage'
 import PaymentAdminPage from './pages/PaymentAdminPage'
+import FeedbackPage from './pages/FeedbackPage'
 
 function HomePage() {
   return (
@@ -43,7 +44,7 @@ function FullTimelinePage() {
 function App() {
   useScrollReveal()
   const { pathname } = useLocation()
-  const isPaymentPortal = pathname === '/payment' || pathname === '/payment/admin'
+  const isPaymentPortal = pathname === '/payment' || pathname === '/payment/admin' || pathname === '/feedback'
 
   useEffect(() => {
     window.scrollTo(0, 0)
@@ -59,6 +60,7 @@ function App() {
         <Route path="/timeline" element={<FullTimelinePage />} />
         <Route path="/payment" element={<PaymentPage />} />
         <Route path="/payment/admin" element={<PaymentAdminPage />} />
+        <Route path="/feedback" element={<FeedbackPage />} />
       </Routes>
       {!isPaymentPortal && <EnchantedWandCursor />}
       {!isPaymentPortal && <WizardingBgmPlayer />}
