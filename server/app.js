@@ -36,6 +36,32 @@ const feedbackRatings = [
   'evaluation2Rating',
   'evaluation3Rating',
 ]
+const gitworkFeatures = new Set([
+  'Visual Commit Graph & Branch Tree',
+  '3-Way Merge Conflict Solver (Fixing git conflicts)',
+  'Cloudflare Live Demo Link (Testing and showing the app to judges on phone)',
+  'Stashing, Branching & Rebase',
+  'Fast 1-command installation via PowerShell / Terminal',
+])
+const gitworkTimeSavedOptions = new Set([
+  'Yes, it saved us a lot of time on Git conflicts and demoing',
+  'Yes, it made Git much easier than terminal commands',
+  'Neutral / About the same',
+  'No',
+])
+const gitworkSessionOptions = new Set([
+  'Yes, definitely! Send me the meeting invitation on WhatsApp and Email.',
+  "Yes, if the timing doesn't clash with classes.",
+  'No, I cannot attend.',
+])
+const gitworkLicenseOptions = new Set([
+  'Yes! I want to purchase the ₹599 Lifetime License (Contact me on WhatsApp/Email).',
+  'Yes, if there is a special student/hackathon offer (Contact me on WhatsApp/Email).',
+  'My team is interested in a shared Team Pass (4 members).',
+  'I will decide after attending the free workshop.',
+  'No, thank you.',
+])
+const gitworkRecommendOptions = new Set(['Yes, absolutely!', 'Maybe', 'No'])
 
 app.post('/api/feedback', async (request, response) => {
   const body = request.body ?? {}
@@ -60,6 +86,40 @@ app.post('/api/feedback', async (request, response) => {
     response.status(400).json({ error: 'Future improvement feedback must be text.' })
     return
   }
+  const requiredGitworkText = ['branchSemester', 'projectName', 'gitworkIssues']
+  if (!requiredGitworkText.every((key) => typeof body[key] === 'string' && body[key].trim())) {
+    response.status(400).json({ error: 'Branch and semester, project name, and Gitwork issue response are required.' })
+    return
+  }
+  const phoneDigits = typeof body.whatsappPhone === 'string' ? body.whatsappPhone.replace(/\D/g, '') : ''
+  if (typeof body.whatsappPhone !== 'string' || !/^\+?[\d\s-]+$/.test(body.whatsappPhone.trim()) || phoneDigits.length < 10 || phoneDigits.length > 15) {
+    response.status(400).json({ error: 'Enter a valid WhatsApp or phone number with 10 to 15 digits.' })
+    return
+  }
+  if (!Number.isInteger(body.gitworkExperience) || body.gitworkExperience < 1 || body.gitworkExperience > 5) {
+    response.status(400).json({ error: 'Choose a Gitwork experience rating from 1 to 5.' })
+    return
+  }
+  if (!Array.isArray(body.gitworkUsefulFeatures) || body.gitworkUsefulFeatures.length === 0 || !body.gitworkUsefulFeatures.every((feature) => typeof feature === 'string' && gitworkFeatures.has(feature))) {
+    response.status(400).json({ error: 'Select at least one valid Gitwork feature.' })
+    return
+  }
+  if (!gitworkTimeSavedOptions.has(body.gitworkTimeSaved)) {
+    response.status(400).json({ error: 'Choose a valid response about time saved with Gitwork.' })
+    return
+  }
+  if (!gitworkSessionOptions.has(body.gitworkSessionAttendance)) {
+    response.status(400).json({ error: 'Choose whether you would like to attend the Gitwork session.' })
+    return
+  }
+  if (!gitworkLicenseOptions.has(body.gitworkLicenseInterest)) {
+    response.status(400).json({ error: 'Choose a valid Gitwork license interest response.' })
+    return
+  }
+  if (!gitworkRecommendOptions.has(body.gitworkRecommend)) {
+    response.status(400).json({ error: 'Choose a valid Gitwork recommendation response.' })
+    return
+  }
   const appsScriptUrl = process.env.APPS_SCRIPT_URL
   if (!appsScriptUrl) {
     response.status(503).json({ error: 'Feedback collection is not configured on the server.' })
@@ -75,6 +135,16 @@ app.post('/api/feedback', async (request, response) => {
     hearAbout: body.hearAbout.trim(),
     ...Object.fromEntries(feedbackRatings.map((key) => [key, body[key]])),
     futureImprovements: typeof body.futureImprovements === 'string' ? body.futureImprovements.trim() : '',
+    branchSemester: body.branchSemester.trim(),
+    whatsappPhone: body.whatsappPhone.trim(),
+    projectName: body.projectName.trim(),
+    gitworkExperience: body.gitworkExperience,
+    gitworkUsefulFeatures: body.gitworkUsefulFeatures,
+    gitworkTimeSaved: body.gitworkTimeSaved,
+    gitworkIssues: body.gitworkIssues.trim(),
+    gitworkSessionAttendance: body.gitworkSessionAttendance,
+    gitworkLicenseInterest: body.gitworkLicenseInterest,
+    gitworkRecommend: body.gitworkRecommend,
   }
   let appsScriptResponse
   let result

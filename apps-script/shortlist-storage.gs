@@ -157,12 +157,23 @@ function handleFeedbackSubmission_(data) {
   }
 
   const sheet = spreadsheet.getSheetByName('Feedback') || spreadsheet.insertSheet('Feedback');
+  const headers = [
+    'Timestamp', 'Participant Name', 'Participant Email', 'Team Name', 'Team Leader Name', 'Domain', 'How Heard',
+    'Overall Experience', 'Hackathon Experience', 'Evaluation Transparency', 'Venue Facilities', 'Mentor Session',
+    'Mentor Feedback Usefulness', 'Evaluation 1', 'Evaluation 2', 'Evaluation 3', 'Future Improvements',
+    'Gitwork Branch & Semester', 'Gitwork WhatsApp / Phone', 'Gitwork Project Name', 'Gitwork Experience',
+    'Gitwork Useful Features', 'Gitwork Time Saved', 'Gitwork Issues', 'Gitwork Session Attendance',
+    'Gitwork License Interest', 'Gitwork Recommendation',
+  ];
   if (sheet.getLastRow() === 0) {
-    sheet.appendRow([
-      'Timestamp', 'Participant Name', 'Participant Email', 'Team Name', 'Team Leader Name', 'Domain', 'How Heard',
-      'Overall Experience', 'Hackathon Experience', 'Evaluation Transparency', 'Venue Facilities', 'Mentor Session',
-      'Mentor Feedback Usefulness', 'Evaluation 1', 'Evaluation 2', 'Evaluation 3', 'Future Improvements',
-    ]);
+    sheet.appendRow(headers);
+  } else {
+    const existing = sheet.getRange(1, 1, 1, Math.max(sheet.getLastColumn(), headers.length)).getValues()[0];
+    const missingHeaders = headers.filter((header) => existing.indexOf(header) < 0);
+    if (missingHeaders.length) {
+      const startColumn = sheet.getLastColumn() + 1;
+      sheet.getRange(1, startColumn, 1, missingHeaders.length).setValues([missingHeaders]);
+    }
   }
   const lock = LockService.getScriptLock();
   lock.waitLock(10000);
@@ -172,6 +183,9 @@ function handleFeedbackSubmission_(data) {
       data.overallExperience || '', data.hackathonExperience || '', data.evaluationTransparency || '', data.venueFacilities || '',
       data.mentorSessionRating || '', data.mentorFeedbackUsefulness || '', data.evaluation1Rating || '', data.evaluation2Rating || '',
       data.evaluation3Rating || '', data.futureImprovements || '',
+      data.branchSemester || '', data.whatsappPhone || '', data.projectName || '', data.gitworkExperience || '',
+      Array.isArray(data.gitworkUsefulFeatures) ? data.gitworkUsefulFeatures.join('; ') : '', data.gitworkTimeSaved || '',
+      data.gitworkIssues || '', data.gitworkSessionAttendance || '', data.gitworkLicenseInterest || '', data.gitworkRecommend || '',
     ]);
   } finally {
     lock.releaseLock();

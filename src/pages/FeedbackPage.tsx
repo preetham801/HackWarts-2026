@@ -5,6 +5,32 @@ import { readApiResponse } from '../utils/apiResponse'
 const domains = ['AgriTech', 'Sustainability & Development', 'EdTech & FinTech', 'Health & Safety'] as const
 const hearAboutOptions = ['Instagram Reels', 'WhatsApp', 'Friends', 'College / Institution', 'Other'] as const
 const ratingOptions = ['1 – Poor', '2 – Fair', '3 – Average', '4 – Good', '5 – Excellent']
+const gitworkFeatures = [
+  'Visual Commit Graph & Branch Tree',
+  '3-Way Merge Conflict Solver (Fixing git conflicts)',
+  'Cloudflare Live Demo Link (Testing and showing the app to judges on phone)',
+  'Stashing, Branching & Rebase',
+  'Fast 1-command installation via PowerShell / Terminal',
+] as const
+const gitworkTimeSavedOptions = [
+  'Yes, it saved us a lot of time on Git conflicts and demoing',
+  'Yes, it made Git much easier than terminal commands',
+  'Neutral / About the same',
+  'No',
+] as const
+const gitworkSessionOptions = [
+  'Yes, definitely! Send me the meeting invitation on WhatsApp and Email.',
+  "Yes, if the timing doesn't clash with classes.",
+  'No, I cannot attend.',
+] as const
+const gitworkLicenseOptions = [
+  'Yes! I want to purchase the ₹599 Lifetime License (Contact me on WhatsApp/Email).',
+  'Yes, if there is a special student/hackathon offer (Contact me on WhatsApp/Email).',
+  'My team is interested in a shared Team Pass (4 members).',
+  'I will decide after attending the free workshop.',
+  'No, thank you.',
+] as const
+const gitworkRecommendOptions = ['Yes, absolutely!', 'Maybe', 'No'] as const
 const ratingQuestions = [
   ['overallExperience', '2. How would you rate your overall HackWarts experience?'],
   ['hackathonExperience', '3. How was your overall 24-hour hackathon experience?'],
@@ -28,6 +54,16 @@ export default function FeedbackPage() {
   const [otherHearAbout, setOtherHearAbout] = useState('')
   const [ratings, setRatings] = useState<Partial<Record<RatingKey, number>>>({})
   const [futureImprovements, setFutureImprovements] = useState('')
+  const [branchSemester, setBranchSemester] = useState('')
+  const [whatsappPhone, setWhatsappPhone] = useState('')
+  const [projectName, setProjectName] = useState('')
+  const [gitworkExperience, setGitworkExperience] = useState(0)
+  const [gitworkUsefulFeatures, setGitworkUsefulFeatures] = useState<string[]>([])
+  const [gitworkTimeSaved, setGitworkTimeSaved] = useState('')
+  const [gitworkIssues, setGitworkIssues] = useState('')
+  const [gitworkSessionAttendance, setGitworkSessionAttendance] = useState('')
+  const [gitworkLicenseInterest, setGitworkLicenseInterest] = useState('')
+  const [gitworkRecommend, setGitworkRecommend] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [certificateEmail, setCertificateEmail] = useState('')
@@ -44,6 +80,10 @@ export default function FeedbackPage() {
       setError('Please tell us how you heard about HackWarts.')
       return
     }
+    if (!gitworkExperience || gitworkUsefulFeatures.length === 0) {
+      setError('Please rate Gitwork and select at least one useful feature.')
+      return
+    }
     setBusy(true)
     try {
       const response = await fetch('/api/feedback', {
@@ -58,6 +98,16 @@ export default function FeedbackPage() {
           hearAbout: hearAbout === 'Other' ? otherHearAbout.trim() : hearAbout,
           ...ratings,
           futureImprovements,
+          branchSemester,
+          whatsappPhone,
+          projectName,
+          gitworkExperience,
+          gitworkUsefulFeatures,
+          gitworkTimeSaved,
+          gitworkIssues,
+          gitworkSessionAttendance,
+          gitworkLicenseInterest,
+          gitworkRecommend,
         }),
       })
       const result = await readApiResponse<{ success: boolean; participantName: string; teamName: string }>(response)
@@ -117,6 +167,31 @@ export default function FeedbackPage() {
           <p className="payment-eyebrow">Question 11 · Optional</p>
           <h2 id="feedback-improve-title">What should we improve in future editions of HackWarts?</h2>
           <textarea rows={5} value={futureImprovements} onChange={(event) => setFutureImprovements(event.target.value)} maxLength={3000} />
+        </section>
+        <section className="feedback-form__section feedback-form__sponsor" aria-labelledby="gitwork-feedback-title">
+          <p className="payment-eyebrow">Official Software Sponsor</p>
+          <h2 id="gitwork-feedback-title">Gitwork Platform Feedback</h2>
+          <div className="feedback-form__grid">
+            <label>Branch &amp; Semester<input value={branchSemester} onChange={(event) => setBranchSemester(event.target.value)} placeholder="e.g. CSE 5th Sem, ISE 7th Sem, AI&DS 3rd Sem" required maxLength={120} /></label>
+            <label>WhatsApp / Phone Number<input type="tel" value={whatsappPhone} onChange={(event) => setWhatsappPhone(event.target.value)} placeholder="e.g. +91 98765 43210" required maxLength={24} /><small>For WhatsApp invitations, session reminders, and direct support</small></label>
+            <label>Project Name (recorded alongside Team Name for Gitwork)<input value={projectName} onChange={(event) => setProjectName(event.target.value)} required maxLength={160} /></label>
+            <label>Did you face any issues, bugs, or confusion while using it?<input value={gitworkIssues} onChange={(event) => setGitworkIssues(event.target.value)} placeholder="Type None if everything worked smoothly" required maxLength={1000} /></label>
+          </div>
+          <fieldset className="feedback-rating feedback-gitwork-rating">
+            <legend>How would you rate your experience using Gitwork during the hackathon?</legend>
+            <div className="feedback-rating__options" role="group" aria-label="Gitwork experience rating">
+              {[1, 2, 3, 4, 5].map((value) => <button key={value} type="button" className={gitworkExperience === value ? 'is-selected' : ''} aria-pressed={gitworkExperience === value} onClick={() => setGitworkExperience(value)}><strong>{value}</strong><span>{value === 1 ? 'Needs Improvement' : value === 5 ? 'Loved it / Super helpful' : ratingOptions[value - 1].split(' – ')[1]}</span></button>)}
+            </div>
+            <span className="feedback-rating__legend" aria-hidden="true"><span>1 = Needs Improvement</span><span></span><span></span><span></span><span>5 = Loved it / Super helpful</span></span>
+          </fieldset>
+          <fieldset className="feedback-choice-group">
+            <legend>Which features did you find most useful? <span>(Select at least one)</span></legend>
+            <div className="feedback-choice-group__options feedback-choice-group__options--checks">{gitworkFeatures.map((feature) => <label key={feature}><input type="checkbox" checked={gitworkUsefulFeatures.includes(feature)} onChange={(event) => setGitworkUsefulFeatures((current) => event.target.checked ? [...current, feature] : current.filter((item) => item !== feature))} />{feature}</label>)}</div>
+          </fieldset>
+          <fieldset className="feedback-choice-group"><legend>Did Gitwork save your team time during the hackathon?</legend><div className="feedback-choice-group__options">{gitworkTimeSavedOptions.map((option) => <label key={option}><input type="radio" name="gitworkTimeSaved" value={option} checked={gitworkTimeSaved === option} onChange={() => setGitworkTimeSaved(option)} required />{option}</label>)}</div></fieldset>
+          <fieldset className="feedback-choice-group"><legend>We are conducting a FREE online hands-on session before December 31 on Advanced Git &amp; Cloud Deployment. Would you like to attend?</legend><div className="feedback-choice-group__options">{gitworkSessionOptions.map((option) => <label key={option}><input type="radio" name="gitworkSessionAttendance" value={option} checked={gitworkSessionAttendance === option} onChange={() => setGitworkSessionAttendance(option)} required />{option}</label>)}</div></fieldset>
+          <fieldset className="feedback-choice-group"><legend>Gitwork's regular Lifetime License is ₹599 (one-time payment, permanent access, no subscriptions). After attending the free session, would you be interested in keeping Gitwork permanently for your laptop?</legend><div className="feedback-choice-group__options">{gitworkLicenseOptions.map((option) => <label key={option}><input type="radio" name="gitworkLicenseInterest" value={option} checked={gitworkLicenseInterest === option} onChange={() => setGitworkLicenseInterest(option)} required />{option}</label>)}</div></fieldset>
+          <fieldset className="feedback-choice-group"><legend>Would you recommend Gitwork to other students or juniors for their final year / mini-projects?</legend><div className="feedback-choice-group__options">{gitworkRecommendOptions.map((option) => <label key={option}><input type="radio" name="gitworkRecommend" value={option} checked={gitworkRecommend === option} onChange={() => setGitworkRecommend(option)} required />{option}</label>)}</div></fieldset>
         </section>
         {error && <p className="payment-alert" role="alert">{error}</p>}
         <button className="payment-button feedback-form__submit" type="submit" disabled={busy}>{busy ? 'Verifying team & sending certificate…' : 'Submit Feedback & Email My Certificate'}</button>

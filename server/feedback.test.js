@@ -28,6 +28,16 @@ const validFeedback = {
   evaluation2Rating: 4,
   evaluation3Rating: 5,
   futureImprovements: 'More workshops, please.',
+  branchSemester: 'CSE 5th Sem',
+  whatsappPhone: '+91 98765 43210',
+  projectName: 'Spellbook Studio',
+  gitworkExperience: 5,
+  gitworkUsefulFeatures: ['Visual Commit Graph & Branch Tree', 'Stashing, Branching & Rebase'],
+  gitworkTimeSaved: 'Yes, it saved us a lot of time on Git conflicts and demoing',
+  gitworkIssues: 'None',
+  gitworkSessionAttendance: 'Yes, definitely! Send me the meeting invitation on WhatsApp and Email.',
+  gitworkLicenseInterest: 'I will decide after attending the free workshop.',
+  gitworkRecommend: 'Yes, absolutely!',
 }
 
 before(async () => {
@@ -71,6 +81,29 @@ test('feedback route validates the required fields and rating range', async () =
   })
   assert.equal(missingIdentity.status, 400)
   assert.match((await missingIdentity.json()).error, /team name/)
+})
+
+test('feedback route rejects missing or invalid Gitwork sponsor answers', async () => {
+  const invalidPayloads = [
+    { ...validFeedback, branchSemester: '' },
+    { ...validFeedback, whatsappPhone: '12345' },
+    { ...validFeedback, projectName: '' },
+    { ...validFeedback, gitworkExperience: 6 },
+    { ...validFeedback, gitworkUsefulFeatures: [] },
+    { ...validFeedback, gitworkUsefulFeatures: ['Unknown feature'] },
+    { ...validFeedback, gitworkTimeSaved: 'Sometimes' },
+    { ...validFeedback, gitworkIssues: '' },
+    { ...validFeedback, gitworkSessionAttendance: 'Maybe' },
+    { ...validFeedback, gitworkLicenseInterest: 'Possibly' },
+    { ...validFeedback, gitworkRecommend: 'Definitely' },
+  ]
+  for (const payload of invalidPayloads) {
+    const response = await originalFetch(`${baseUrl}/api/feedback`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
+    })
+    assert.equal(response.status, 400)
+    assert.ok((await response.json()).error)
+  }
 })
 
 test('feedback route forwards validated feedback and returns paid-roster rejection', async () => {
