@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { after, before, test } from 'node:test'
-import { PDFDocument } from 'pdf-lib'
+import { inflateSync } from 'node:zlib'
+import { PDFDocument, PDFName } from 'pdf-lib'
 import app from './app.js'
 import { generateCertificatePdf } from './paymentMailer.js'
 
@@ -119,10 +120,18 @@ test('feedback route forwards validated feedback and returns paid-roster rejecti
   })
 })
 
-test('certificate generator returns a stamped landscape PDF', async () => {
-  const output = await generateCertificatePdf('Minerva McGonagall')
+test('certificate generator preserves the artwork and adds a fitting white participant name', async () => {
+  const output = await generateCertificatePdf('Yashas DV')
   assert.equal(output.subarray(0, 5).toString(), '%PDF-')
   const pdf = await PDFDocument.load(output)
   const [page] = pdf.getPages()
   assert.deepEqual(page.getSize(), { width: 864, height: 576 })
+  const contents = page.node.Contents()
+  const decodedStreams = Array.from({ length: contents.size() }, (_, index) => {
+    const stream = pdf.context.lookup(contents.get(index))
+    return inflateSync(stream.getContents()).toString('latin1')
+  }).join('\n')
+  assert.doesNotMatch(decodedStreams, /\[\(Partic\)-3\(ipant \)10\(name\)\] TJ/)
+  assert.match(decodedStreams, /1 1 1 rg\n\/Times-Bold-[^ ]+ 26 Tf\n\d+ TL\n1 0 0 1 72\.336 318 Tm\n<596173686173204456> Tj/)
+  assert.doesNotMatch(decodedStreams, /68\s+298\s+240\s+36\s+re/)
 })

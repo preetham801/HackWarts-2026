@@ -1,10 +1,17 @@
 import nodemailer from 'nodemailer'
+import { existsSync } from 'node:fs'
 import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { PDFDocument, rgb, StandardFonts } from 'pdf-lib'
+import { deflateSync, inflateSync } from 'node:zlib'
+import { PDFDict, PDFDocument, PDFName, PDFRawStream, rgb, StandardFonts } from 'pdf-lib'
 
-const certificateTemplatePath = path.join(path.dirname(fileURLToPath(import.meta.url)), 'assets', 'Hackwarts-2026 CERTIFICATE.pdf')
+const certificateAssetsPath = path.join(path.dirname(fileURLToPath(import.meta.url)), 'assets')
+const updatedCertificateTemplatePath = path.join(certificateAssetsPath, 'HACKWARTS-2026-Participation Certificate.pdf')
+const legacyCertificateTemplatePath = path.join(certificateAssetsPath, 'Hackwarts-2026 CERTIFICATE.pdf')
+const certificateTemplatePath = existsSync(updatedCertificateTemplatePath)
+  ? updatedCertificateTemplatePath
+  : legacyCertificateTemplatePath
 
 function escapeHtml(value) {
   return String(value ?? '').replace(/[&<>"']/g, (character) => ({
@@ -107,33 +114,47 @@ export async function generateCertificatePdf(participantName) {
   const pdf = await PDFDocument.load(template)
   const page = pdf.getPages()[0]
   if (!page) throw new Error('The certificate template has no pages.')
+
+  // The updated template has a clean name area. If only the legacy template is
+  // installed, remove its original placeholder text operator without painting
+  // over any of the certificate artwork.
+  if (certificateTemplatePath === legacyCertificateTemplatePath) {
+    const contentReference = page.node.get(PDFName.of('Contents'))
+    const contentStream = pdf.context.lookup(contentReference)
+    const sourceContent = inflateSync(contentStream.getContents()).toString('latin1').replace(/\r\n/g, '\n')
+    const placeholderText = `BT
+/F1 24 Tf
+1 0 0 1 70.56 308.95 Tm
+0.957 0.945 0.918 rg
+0.957 0.945 0.918 RG
+[(Partic)-3(ipant )10(name)] TJ
+ET`
+    if (sourceContent.includes(placeholderText)) {
+      const cleanContent = sourceContent.replace(placeholderText, '')
+      const streamDictionary = PDFDict.withContext(pdf.context)
+      streamDictionary.set(PDFName.of('Filter'), PDFName.of('FlateDecode'))
+      const replacementStream = pdf.context.register(PDFRawStream.of(streamDictionary, deflateSync(Buffer.from(cleanContent, 'latin1'))))
+      page.node.set(PDFName.of('Contents'), replacementStream)
+    }
+  }
+
   const font = await pdf.embedFont(StandardFonts.TimesRomanBold)
   const name = String(participantName ?? '').trim()
-  const maxWidth = 520
-  const fontSize = Math.min(24, (maxWidth / Math.max(font.widthOfTextAtSize(name, 24), 1)) * 24)
-  page.drawRectangle({
-    x: 68,
-    y: 298,
-    width: 240,
-    height: 36,
-    color: rgb(0.976, 0.961, 0.922),
-  })
+  const maxWidth = 420
+  const baseFontSize = 26
+  const fontSize = Math.min(baseFontSize, (maxWidth / Math.max(font.widthOfTextAtSize(name, baseFontSize), 1)) * baseFontSize)
   page.drawText(name, {
-    x: 70.56,
-    y: 305.5,
+    x: 72.336,
+    y: 318,
     size: fontSize,
     font,
-    color: rgb(0.11, 0.14, 0.21),
+    color: rgb(1, 1, 1),
   })
   return Buffer.from(await pdf.save())
 }
 
 export async function sendParticipationCertificateEmail({ participantName, email, teamName, domain }) {
   const certificate = await generateCertificatePdf(participantName)
-  const safeName = String(participantName || 'Participant')
-    .normalize('NFKD')
-    .replace(/[^a-zA-Z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '') || 'Participant'
   const html = emailFrame(
     'Thank you for your feedback',
     `<p>Dear ${escapeHtml(participantName)},</p><p>Thank you for sharing feedback about HackWarts 2026. Your Certificate of Participation is attached to this email.</p><p><strong>Team:</strong> ${escapeHtml(teamName)}<br><strong>Domain:</strong> ${escapeHtml(domain)}</p><p>We appreciate your contribution to the event and your thoughts for future editions.</p>`,
@@ -145,7 +166,7 @@ export async function sendParticipationCertificateEmail({ participantName, email
     subject: `HackWarts 2026 Certificate of Participation — ${participantName}`,
     html,
     attachments: [{
-      filename: `HackWarts-2026-Certificate-${safeName}.pdf`,
+      filename: 'Hackwarts-2026-Participation-Certificate.pdf',
       content: certificate,
       contentType: 'application/pdf',
     }],
